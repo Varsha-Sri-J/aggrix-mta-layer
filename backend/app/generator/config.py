@@ -50,6 +50,18 @@ class GeneratorConfig:
     min_item_quantity: int = 1
     max_item_quantity: int = 3
 
+    # Incremental expansion offsets
+    tenant_offset: int = 0  # Starting offset for tenant index sequence
+    customer_offset: int = 0  # Starting offset for customer email sequence
+    product_offset: int = 0  # Starting offset for product SKU sequence
+    order_offset: int = 0  # Starting offset for order sequence (SHP-{order_offset + seq:06d})
+
+    # Incremental generation and streaming behavior
+    incremental: bool = False
+    commit_per_tenant: bool = False  # Commit & expunge session after each tenant partition for O(1) memory
+    all_outbox_unprocessed: bool = False  # If True, sets processed_at = None on all generated outbox events
+    existing_tenant_id: Optional[str] = None  # Target a specific existing tenant to append data to
+
     # Currency and store domain suffix
     currency: str = "USD"
     domain_suffix: str = SYNTHETIC_DOMAIN_SUFFIX
@@ -64,14 +76,22 @@ class GeneratorConfig:
 
     def validate(self) -> None:
         """Validate configuration bounds and invariants."""
-        if self.tenants_count <= 0:
+        if self.existing_tenant_id is None and self.tenants_count <= 0:
             raise ValueError("tenants_count must be > 0")
-        if self.customers_per_tenant <= 0:
+        if self.customers_per_tenant < 0 or (self.existing_tenant_id is None and self.customers_per_tenant == 0):
             raise ValueError("customers_per_tenant must be > 0")
-        if self.products_per_tenant <= 0:
+        if self.products_per_tenant < 0 or (self.existing_tenant_id is None and self.products_per_tenant == 0):
             raise ValueError("products_per_tenant must be > 0")
         if self.orders_per_tenant < 0:
             raise ValueError("orders_per_tenant must be >= 0")
+        if self.tenant_offset < 0:
+            raise ValueError("tenant_offset must be >= 0")
+        if self.customer_offset < 0:
+            raise ValueError("customer_offset must be >= 0")
+        if self.product_offset < 0:
+            raise ValueError("product_offset must be >= 0")
+        if self.order_offset < 0:
+            raise ValueError("order_offset must be >= 0")
         if self.batch_size <= 0:
             raise ValueError("batch_size must be > 0")
         if self.days_history <= 0:

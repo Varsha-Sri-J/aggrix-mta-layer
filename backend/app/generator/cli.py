@@ -110,6 +110,51 @@ def parse_args(args: list[str] | None = None) -> argparse.Namespace:
         help="Automatically confirm synthetic data cleanup without interactive prompt",
     )
     parser.add_argument(
+        "--incremental",
+        action="store_true",
+        help="Run in incremental expansion mode (preserves existing dataset and auto-offsets)",
+    )
+    parser.add_argument(
+        "--tenant-offset",
+        type=int,
+        default=None,
+        help="Starting tenant index sequence offset (auto-detected if in --incremental mode)",
+    )
+    parser.add_argument(
+        "--customer-offset",
+        type=int,
+        default=0,
+        help="Starting customer email sequence offset per tenant",
+    )
+    parser.add_argument(
+        "--product-offset",
+        type=int,
+        default=0,
+        help="Starting product SKU sequence offset per tenant",
+    )
+    parser.add_argument(
+        "--order-offset",
+        type=int,
+        default=0,
+        help="Starting order sequence offset (SHP-{order_offset + seq:06d})",
+    )
+    parser.add_argument(
+        "--commit-per-tenant",
+        action="store_true",
+        help="Commit database transaction and expunge session after each tenant partition for O(1) memory",
+    )
+    parser.add_argument(
+        "--all-unprocessed",
+        action="store_true",
+        help="Mark 100%% of generated outbox events as pending (processed_at = NULL) for live analytics worker",
+    )
+    parser.add_argument(
+        "--target-tenant-id",
+        type=str,
+        default=None,
+        help="Target a specific existing tenant UUID to append customers/products/orders to",
+    )
+    parser.add_argument(
         "--db-url",
         type=str,
         default=None,
@@ -133,6 +178,16 @@ def main(args: list[str] | None = None) -> int:
     opts = parse_args(args)
     as_of_dt = parse_as_of(opts.as_of)
 
+    tenant_offset = opts.tenant_offset
+    if tenant_offset is None and opts.incremental:
+        try:
+            with get_db_session() as session:
+                tenant_offset = SyntheticDataGenerator.detect_synthetic_tenant_count(session)
+        except Exception:
+            tenant_offset = 0
+    elif tenant_offset is None:
+        tenant_offset = 0
+
     config = GeneratorConfig(
         tenants_count=opts.tenants,
         customers_per_tenant=opts.customers_per_tenant,
@@ -143,6 +198,14 @@ def main(args: list[str] | None = None) -> int:
         days_history=opts.days,
         as_of=as_of_dt,
         unprocessed_outbox_percentage=opts.unprocessed_ratio,
+        tenant_offset=tenant_offset,
+        customer_offset=opts.customer_offset,
+        product_offset=opts.product_offset,
+        order_offset=opts.order_offset,
+        incremental=opts.incremental,
+        commit_per_tenant=opts.commit_per_tenant,
+        all_outbox_unprocessed=opts.all_unprocessed,
+        existing_tenant_id=opts.target_tenant_id,
     )
     config.validate()
 
@@ -195,9 +258,36 @@ def main(args: list[str] | None = None) -> int:
             print(f"[+] Cleanup successfully executed: Purged {plan.tenants_count} tenants and {plan.total_records_count:,} total records.\n")
         return 0
 
-    # 2. Dry run mode (In-memory only)
+    # 2. Dry run mode
     if opts.dry_run:
         ref_time = config.get_reference_time().isoformat()
+        if opts.incremental:
+            with get_db_session() as session:
+                preview = generator.preview_incremental_generation(session=session)
+
+            print("\n" + "=" * 80)
+            print("AGGRIX SYNTHETIC DATA GENERATION: INCREMENTAL DRY RUN PREVIEW")
+            print("=" * 80)
+            print(f"Reference Time:         {ref_time}")
+            print(f"Tenant Offset:          {preview.tenant_offset}")
+            print(f"Target New Tenants:     {preview.planned_tenants_count:,}")
+            if preview.colliding_domains:
+                print(f"[!] WARNING: {len(preview.colliding_domains)} domain collision(s) detected: {preview.colliding_domains}")
+            print("-" * 80)
+            print(f"{'Entity':<18} {'Current DB':<20} {'Planned New':<20} {'Projected Total':<20}")
+            print("-" * 80)
+            print(f"{'Tenants':<18} {preview.existing_tenants_count:<20,} {preview.planned_tenants_count:<20,} {preview.existing_tenants_count + preview.planned_tenants_count:<20,}")
+            print(f"{'Customers':<18} {preview.existing_customers_count:<20,} {preview.planned_customers_count:<20,} {preview.existing_customers_count + preview.planned_customers_count:<20,}")
+            print(f"{'Products':<18} {preview.existing_products_count:<20,} {preview.planned_products_count:<20,} {preview.existing_products_count + preview.planned_products_count:<20,}")
+            print(f"{'Orders':<18} {preview.existing_orders_count:<20,} {preview.planned_orders_count:<20,} {preview.existing_orders_count + preview.planned_orders_count:<20,}")
+            print(f"{'Order Items':<18} {preview.existing_order_items_count:<20,} ~{preview.planned_order_items_count:<19,} ~{preview.existing_order_items_count + preview.planned_order_items_count:<19,}")
+            print(f"{'Outbox Events':<18} {preview.existing_outbox_events_count:<20,} ~{preview.planned_outbox_events_count:<19,} ~{preview.existing_outbox_events_count + preview.planned_outbox_events_count:<19,}")
+            print(f"  Pending Outbox:       ~{preview.planned_unprocessed_outbox_count:,} events flagged for live worker processing")
+            print("=" * 80)
+            print("[+] Incremental dry run succeeded with 0 database modifications.\n")
+            return 0
+
+        # In-memory only dry run
         print(f"[*] Running DRY RUN generation (seed={config.seed}, as_of={ref_time})...")
         dataset = generator.generate_dataset()
         stats = dataset.stats
@@ -222,20 +312,36 @@ def main(args: list[str] | None = None) -> int:
     # 3. Live database generation
     ref_time = config.get_reference_time().isoformat()
     print(f"[*] Starting live generation and database insertion (seed={config.seed}, as_of={ref_time})...")
-    print(
-        f"    Target: {config.tenants_count} tenants, "
-        f"{config.customers_per_tenant} customers/tenant, "
-        f"{config.products_per_tenant} products/tenant, "
-        f"{config.orders_per_tenant} orders/tenant"
-    )
+    if opts.target_tenant_id:
+        print(f"    Target Tenant: {opts.target_tenant_id} (appending records)")
+    else:
+        print(
+            f"    Target: {config.tenants_count} tenants (offset={config.tenant_offset}), "
+            f"{config.customers_per_tenant} customers/tenant, "
+            f"{config.products_per_tenant} products/tenant, "
+            f"{config.orders_per_tenant} orders/tenant"
+        )
 
     with get_db_session() as session:
-        stats = generator.insert_dataset(session=session)
+        if opts.target_tenant_id:
+            import uuid
+            stats = generator.insert_incremental_for_tenant(
+                session=session,
+                tenant_id=uuid.UUID(opts.target_tenant_id),
+            )
+        elif opts.incremental or opts.commit_per_tenant:
+            stats = generator.insert_dataset_streaming(
+                session=session,
+                commit_per_tenant=opts.commit_per_tenant,
+            )
+        else:
+            stats = generator.insert_dataset(session=session)
 
     print("\n" + "=" * 60)
     print("AGGRIX SYNTHETIC DATA GENERATION COMPLETE")
     print("=" * 60)
     print(f"Reference Time:         {ref_time}")
+    print(f"Mode:                   {'Incremental' if opts.incremental else 'Full'}")
     print(f"Tenants Inserted:       {stats.tenants_count:,}")
     print(f"Customers Inserted:     {stats.customers_count:,}")
     print(f"Products Inserted:      {stats.products_count:,}")

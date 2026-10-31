@@ -119,9 +119,108 @@ cp .env.example .env
 # 3. Run database migrations
 alembic upgrade head
 
-# 4. Start FastAPI Application
+# 4. Provision Initial Platform Administrator (One-Time Bootstrap)
+PYTHONPATH=backend python -m app.cli init-admin
+
+# 5. Start FastAPI Application
 PYTHONPATH=backend uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+# 6. Start Analytics Worker Daemon
+PYTHONPATH=backend python -m app.analytics.worker
 ```
+
+---
+
+## Initial Platform Administrator CLI
+
+Because public registration is disabled and account provisioning requires an authenticated platform administrator, AGGRIX provides an offline one-time bootstrap CLI:
+
+```bash
+# Interactive mode (hidden password entry via getpass)
+PYTHONPATH=backend python -m app.cli init-admin
+
+# Or directly:
+PYTHONPATH=backend python -m app.cli.init_admin --email admin@example.com
+```
+
+Key features:
+* **One-time bootstrap**: Automatically refuses execution if an administrator already exists.
+* **Hidden password prompt**: Input masked using `getpass`.
+* **Bcrypt hashing**: Salted hash (12 rounds) stored in database; never stores plaintext passwords.
+* **Validation**: Validates email format and password constraints (>= 8 chars, <= 72 bytes).
+
+---
+
+## Analytics Worker & Dead Letter Queue (DLQ) Management
+
+AGGRIX runs an incremental aggregation worker that continuously polls the transactional outbox (`outbox_events`), updates tenant-level and product-level rollups, and records idempotent receipts in `analytics_consumer_events`. Events failing 3 times are quarantined in `analytics_dead_letter_events`.
+
+### Running the Worker
+
+* **Via Docker Compose**:
+  ```bash
+  docker compose up -d analytics-worker
+  docker compose logs -f analytics-worker
+  ```
+* **Locally**:
+  ```bash
+  PYTHONPATH=backend python -m app.analytics.worker
+  ```
+
+### Dead Letter Queue (DLQ) CLI
+
+The DLQ CLI provides operations to inspect quarantined events, replay them after underlying data fixes, or reset retry attempt counters:
+
+```bash
+# 1. Inspect all quarantined events
+PYTHONPATH=backend python -m app.cli dlq inspect
+
+# Filter by tenant
+PYTHONPATH=backend python -m app.cli dlq inspect --tenant-id <tenant-uuid>
+
+# Inspect a specific event
+PYTHONPATH=backend python -m app.cli dlq inspect --event-id <event-uuid>
+
+# 2. Replay a specific quarantined event
+PYTHONPATH=backend python -m app.cli dlq replay --event-id <event-uuid>
+
+# Replay all quarantined events for a tenant (up to batch limit)
+PYTHONPATH=backend python -m app.cli dlq replay --tenant-id <tenant-uuid> --limit 100
+
+# 3. Reset retry counters to allow standard worker polling
+PYTHONPATH=backend python -m app.cli dlq reset --event-id <event-uuid>
+```
+
+---
+
+## Synthetic Data Generator & Incremental Dataset Expansion
+
+AGGRIX provides a high-throughput, deterministic synthetic data generator supporting initial seeding, streaming multi-tenant generation, and safe incremental dataset expansion.
+
+### CLI Usage
+
+```bash
+# 1. Incremental Dry Run (shows current DB counts vs planned additions with 0 writes)
+PYTHONPATH=backend python -m app.generator.cli --incremental --dry-run --tenants 5 --orders-per-tenant 2000
+
+# 2. Live Incremental Expansion (adds new tenants starting at auto-detected offset)
+PYTHONPATH=backend python -m app.generator.cli --incremental --tenants 5 --customers-per-tenant 500 --products-per-tenant 100 --orders-per-tenant 2000 --all-unprocessed
+
+# 3. High-Scale Streaming (commits per tenant partition to maintain O(1) memory)
+PYTHONPATH=backend python -m app.generator.cli --incremental --tenants 45 --commit-per-tenant --batch-size 1000
+
+# 4. Append Records to a Specific Existing Tenant
+PYTHONPATH=backend python -m app.generator.cli --target-tenant-id <tenant-uuid> --orders-per-tenant 100 --all-unprocessed
+
+# 5. Safe Synthetic Data Cleanup (preview impact with explicit confirmation guardrail)
+PYTHONPATH=backend python -m app.generator.cli --cleanup
+```
+
+### Key Safety Invariants & Guardrails
+* **Duplicate Prevention**: Before insertion, validates candidate domains and sequence IDs against active records, rejecting colliding runs.
+* **Preservation of Existing Records**: Offsets start after existing records without modifying or regenerating historical data.
+* **Deterministic Sequences**: Sequential `order_seq` (`SHP-XXXXXX`), customer emails (`first.last.XXXX@domain`), and SKUs (`CAT-XXXX`).
+* **Live Worker Integration**: `--all-unprocessed` marks outbox events as pending (`processed_at = NULL`) for automatic incremental aggregation by the analytics worker.
 
 ---
 
@@ -133,3 +232,5 @@ Execute the complete test suite using `pytest`:
 source .venv/bin/activate
 pytest -v
 ```
+
+

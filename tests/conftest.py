@@ -1,6 +1,9 @@
 """Pytest fixtures for AGGRIX database tests."""
 
 import os
+# Ensure valid JWT secret for isolated test suite runs
+os.environ.setdefault("JWT_SECRET_KEY", "test-suite-secure-random-cryptographic-jwt-key-minimum-32-bytes")
+
 from collections.abc import Generator
 import pytest
 import sqlalchemy as sa
@@ -11,6 +14,7 @@ import app.models  # noqa: F401
 from app.core.config import settings
 from app.database.base import Base
 from app.database.connection import check_database_connection, create_database_engine
+
 
 
 def is_postgres_available(url: str) -> bool:

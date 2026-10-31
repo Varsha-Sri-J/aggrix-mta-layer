@@ -59,17 +59,20 @@ def build_customers(
     count: int,
     base_time: datetime,
     config: GeneratorConfig,
+    customer_offset: int = 0,
 ) -> List[Customer]:
     """Build deterministic, tenant-isolated Customer models with unique emails."""
     customers: List[Customer] = []
     tenant_created = base_time - timedelta(days=config.days_history + 10)
     max_customer_days = max(1, config.days_history - 5)
+    offset = customer_offset or config.customer_offset
 
     for i in range(count):
         first = rng.choice(FIRST_NAMES)
         last = rng.choice(LAST_NAMES)
         email_domain = rng.choice(EMAIL_DOMAINS)
-        email = f"{first.lower()}.{last.lower()}.{i + 1:04d}@{email_domain}"
+        seq = offset + i + 1
+        email = f"{first.lower()}.{last.lower()}.{seq:04d}@{email_domain}"
 
         # Distributed registration between tenant onboarding and 5 days ago
         registration_offset = rng.uniform(0, max_customer_days)
@@ -94,19 +97,22 @@ def build_products(
     count: int,
     base_time: datetime,
     config: GeneratorConfig,
+    product_offset: int = 0,
 ) -> List[Product]:
     """Build deterministic, tenant-isolated Product catalog items with unique SKUs."""
     products: List[Product] = []
     tenant_created = base_time - timedelta(days=config.days_history + 10)
+    offset = product_offset or config.product_offset
 
     for i in range(count):
-        template_idx = i % len(PRODUCT_TEMPLATES)
+        abs_idx = offset + i
+        template_idx = abs_idx % len(PRODUCT_TEMPLATES)
         cat_code, base_name, base_price = PRODUCT_TEMPLATES[template_idx]
-        multiplier = (i // len(PRODUCT_TEMPLATES)) + 1
+        multiplier = (abs_idx // len(PRODUCT_TEMPLATES)) + 1
         name = f"{base_name} V{multiplier}" if multiplier > 1 else base_name
 
         # Ensure unique SKU per tenant
-        sku = f"{cat_code}-{i + 1:04d}"
+        sku = f"{cat_code}-{abs_idx + 1:04d}"
 
         # Price variance: +/- 10% around base price, rounded to 2 decimal places
         variation = Decimal(str(rng.randint(-500, 500) / 100.0))
@@ -153,7 +159,10 @@ def build_order_and_items(
 
     # Order placement timestamp between customer registration (or 60d ago) and base_time
     history_start = base_time - timedelta(days=config.days_history)
-    earliest_time = max(customer.created_at, history_start)
+    cust_created = customer.created_at
+    if cust_created.tzinfo is None:
+        cust_created = cust_created.replace(tzinfo=timezone.utc)
+    earliest_time = max(cust_created, history_start)
     if earliest_time >= base_time:
         earliest_time = base_time - timedelta(hours=1)
 
@@ -211,6 +220,7 @@ def build_order_and_items(
             event_time=order_created,
             base_time=base_time,
             unprocessed_percentage=config.unprocessed_outbox_percentage,
+            all_unprocessed=config.all_outbox_unprocessed,
         )
     )
 
@@ -237,6 +247,7 @@ def build_order_and_items(
                 event_time=paid_time,
                 base_time=base_time,
                 unprocessed_percentage=config.unprocessed_outbox_percentage,
+                all_unprocessed=config.all_outbox_unprocessed,
             )
         )
 
@@ -263,6 +274,7 @@ def build_order_and_items(
                     event_time=fulfill_time,
                     base_time=base_time,
                     unprocessed_percentage=config.unprocessed_outbox_percentage,
+                    all_unprocessed=config.all_outbox_unprocessed,
                 )
             )
 
@@ -289,6 +301,7 @@ def build_order_and_items(
                 event_time=cancel_time,
                 base_time=base_time,
                 unprocessed_percentage=config.unprocessed_outbox_percentage,
+                all_unprocessed=config.all_outbox_unprocessed,
             )
         )
 
@@ -322,6 +335,7 @@ def _create_outbox_event(
     event_time: datetime,
     base_time: datetime,
     unprocessed_percentage: float,
+    all_unprocessed: bool = False,
 ) -> OutboxEvent:
     """Build a structured transactional OutboxEvent representing point-in-time order state."""
     payload = {
@@ -341,7 +355,7 @@ def _create_outbox_event(
     }
 
     # Decide whether this event is processed or pending
-    is_unprocessed = rng.random() < unprocessed_percentage
+    is_unprocessed = all_unprocessed or (rng.random() < unprocessed_percentage)
     processed_at: Optional[datetime] = None
 
     if not is_unprocessed:

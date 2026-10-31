@@ -9,6 +9,7 @@ from app.generator.engine import (
     CleanupPlan,
     GeneratorDataset,
     GeneratorStats,
+    IncrementalDryRunPreview,
     SyntheticDataGenerator,
     TenantData,
 )
@@ -54,6 +55,7 @@ __all__ = [
     "GeneratorConfig",
     "GeneratorDataset",
     "GeneratorStats",
+    "IncrementalDryRunPreview",
     "SyntheticDataGenerator",
     "TenantData",
     "generate_synthetic_data",
