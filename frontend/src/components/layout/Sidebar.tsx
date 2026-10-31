@@ -20,10 +20,15 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   return (
-    <aside className={`app-sidebar ${isOpen ? 'open' : ''}`}>
+    <aside
+      id="app-sidebar"
+      className={`app-sidebar ${isOpen ? 'open' : ''}`}
+      role="navigation"
+      aria-label="Main Application Navigation"
+    >
       <div className="sidebar-header">
         <div className="brand-badge">
-          <div className="brand-icon-box">
+          <div className="brand-icon-box" aria-hidden="true">
             <Layers size={18} />
           </div>
           <div>
@@ -37,21 +42,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         <button
           className="menu-trigger"
           onClick={onClose}
-          aria-label="Close sidebar"
+          aria-label="Close navigation sidebar"
           style={{ display: isOpen ? 'block' : 'none' }}
         >
-          <X size={20} />
+          <X size={20} aria-hidden="true" />
         </button>
       </div>
 
-      <nav className="sidebar-nav">
+      <nav className="sidebar-nav" aria-label="Sidebar Menu Links">
         <div className="nav-section-title">Role Dashboards</div>
         <NavLink
           to="/dashboard/merchant"
           className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
           onClick={onClose}
         >
-          <Store size={18} />
+          <Store size={18} aria-hidden="true" />
           <span>Merchant Dashboard</span>
         </NavLink>
 
@@ -60,7 +65,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
           onClick={onClose}
         >
-          <Building2 size={18} />
+          <Building2 size={18} aria-hidden="true" />
           <span>Manager Dashboard</span>
         </NavLink>
 
@@ -69,7 +74,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
           onClick={onClose}
         >
-          <ShieldCheck size={18} />
+          <ShieldCheck size={18} aria-hidden="true" />
           <span>Platform Admin</span>
         </NavLink>
 
@@ -79,8 +84,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
           onClick={onClose}
         >
-          <LayoutDashboard size={18} />
-          <span>Dashboard Overview</span>
+          <LayoutDashboard size={18} aria-hidden="true" />
+          <span>Overview Ledger</span>
         </NavLink>
 
         <NavLink
@@ -88,7 +93,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
           onClick={onClose}
         >
-          <Store size={18} />
+          <Store size={18} aria-hidden="true" />
           <span>Tenant Stores</span>
         </NavLink>
 
@@ -98,7 +103,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
           onClick={onClose}
         >
-          <BarChart3 size={18} />
+          <BarChart3 size={18} aria-hidden="true" />
           <span>Analytics Engine</span>
         </NavLink>
 
@@ -108,7 +113,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
           onClick={onClose}
         >
-          <Activity size={18} />
+          <Activity size={18} aria-hidden="true" />
           <span>Health Diagnostics</span>
         </NavLink>
 
@@ -117,7 +122,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
           onClick={onClose}
         >
-          <Settings size={18} />
+          <Settings size={18} aria-hidden="true" />
           <span>System Settings</span>
         </NavLink>
 
@@ -127,7 +132,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
           onClick={onClose}
         >
-          <KeyRound size={18} />
+          <KeyRound size={18} aria-hidden="true" />
           <span>Auth & RBAC (Stage 4)</span>
         </NavLink>
       </nav>
@@ -142,4 +147,3 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     </aside>
   )
 }
-

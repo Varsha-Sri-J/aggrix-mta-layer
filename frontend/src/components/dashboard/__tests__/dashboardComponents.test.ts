@@ -18,6 +18,19 @@ describe('Dashboard Component Data Contracts & Invariants', () => {
     expect(fullHeight).toBe(180)
   })
 
+  it('handles edge case where all daily order counts are zero', () => {
+    const mockZeroData = [
+      { date: '2026-10-01', orderCount: 0 },
+      { date: '2026-10-02', orderCount: 0 },
+    ]
+
+    const maxCount = Math.max(...mockZeroData.map(d => d.orderCount), 10)
+    // Ensures fallback floor to 10 prevents division by zero
+    expect(maxCount).toBe(10)
+    const height = (mockZeroData[0].orderCount / maxCount) * 180
+    expect(height).toBe(0)
+  })
+
   it('Status Distribution aggregates total orders and computes accurate percentages', () => {
     const mockStatusData = [
       { status: 'fulfilled' as const, label: 'Fulfilled', count: 50, color: '#10b981' },
@@ -34,6 +47,12 @@ describe('Dashboard Component Data Contracts & Invariants', () => {
 
     const paidPct = (mockStatusData[1].count / total) * 100
     expect(paidPct).toBe(30)
+  })
+
+  it('handles empty status distribution cleanly', () => {
+    const emptyStatusData: Array<{ status: 'paid'; label: string; count: number; color: string }> = []
+    const total = emptyStatusData.reduce((acc, curr) => acc + curr.count, 0)
+    expect(total).toBe(0)
   })
 
   it('Contract A Product Ranking strictly scopes currency to prevent cross-currency summation', () => {
@@ -58,5 +77,17 @@ describe('Dashboard Component Data Contracts & Invariants', () => {
 
     expect(totalOrders).toBe(300)
     expect(totalTurnover).toBe(35000)
+  })
+
+  it('validates role route mapping paths', () => {
+    const roleRoutes = {
+      merchant: '/dashboard/merchant',
+      manager: '/dashboard/manager',
+      admin: '/dashboard/admin',
+    }
+
+    expect(roleRoutes.merchant).toBe('/dashboard/merchant')
+    expect(roleRoutes.manager).toBe('/dashboard/manager')
+    expect(roleRoutes.admin).toBe('/dashboard/admin')
   })
 })

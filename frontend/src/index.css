@@ -66,6 +66,48 @@ button {
   background: none;
 }
 
+/* Accessibility: Universal Focus Ring */
+:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+/* Screen reader only utility */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Skeleton Loading Animation */
+.skeleton-box {
+  background: linear-gradient(90deg, var(--bg-card) 25%, var(--bg-card-hover) 50%, var(--bg-card) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s infinite;
+  border-radius: var(--radius-sm);
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Mobile Sidebar Backdrop */
+.sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  z-index: 35;
+  transition: opacity 0.25s ease;
+}
+
 /* App Shell Layout */
 .app-shell {
   display: flex;
@@ -417,6 +459,10 @@ tr:hover td {
     margin-left: 0;
   }
 
+  .app-header {
+    padding: 0 16px;
+  }
+
   .menu-trigger {
     display: block;
   }
@@ -431,6 +477,29 @@ tr:hover td {
 
   .page-container {
     padding: 20px 16px;
+  }
+
+  .header-left span {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .page-title {
+    font-size: 20px;
+  }
+
+  .metric-value {
+    font-size: 24px;
+  }
+
+  .role-switcher-bar {
+    gap: 4px;
+  }
+
+  .role-switch-btn {
+    padding: 6px 12px;
+    font-size: 12px;
   }
 }
 

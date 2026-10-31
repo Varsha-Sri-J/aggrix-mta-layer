@@ -130,3 +130,4 @@ export const MerchantDashboardPage: React.FC = () => {
     </div>
   )
 }
+

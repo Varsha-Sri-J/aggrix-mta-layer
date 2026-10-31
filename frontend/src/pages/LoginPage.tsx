@@ -34,55 +34,60 @@ export const LoginPage: React.FC = () => {
   }
 
   return (
-    <div style={{ maxWidth: 760, margin: '0 auto' }}>
+    <div style={{ maxWidth: 780, margin: '0 auto' }}>
       <div className="page-header">
         <h1 className="page-title">
-          <KeyRound size={26} style={{ color: 'var(--accent-primary)' }} />
+          <KeyRound size={26} style={{ color: 'var(--accent-primary)' }} aria-hidden="true" />
           Authentication & RBAC Readiness
         </h1>
         <p className="page-description">
-          FastAPI authentication abstraction and token readiness for merchant and manager roles
+          FastAPI authentication abstraction and token readiness for merchant, manager, and admin roles
         </p>
       </div>
 
       {/* Prominent Architectural Banner */}
-      <div style={{
-        backgroundColor: 'rgba(245, 158, 11, 0.08)',
-        border: '1px solid rgba(245, 158, 11, 0.25)',
-        borderRadius: 'var(--radius-md)',
-        padding: '18px 22px',
-        marginBottom: 24,
-        display: 'flex',
-        alignItems: 'flex-start',
-        gap: 14,
-      }}>
-        <ShieldAlert size={22} style={{ color: 'var(--warning)', flexShrink: 0, marginTop: 2 }} />
+      <div
+        className="demo-banner"
+        role="alert"
+        style={{
+          borderLeft: '4px solid var(--warning)',
+          padding: '18px 22px',
+          marginBottom: 24,
+        }}
+      >
+        <ShieldAlert size={24} style={{ color: 'var(--warning)', flexShrink: 0, marginTop: 2 }} aria-hidden="true" />
         <div>
           <div style={{ fontWeight: 700, color: '#ffffff', fontSize: 14, marginBottom: 4 }}>
-            Authentication Awaiting Stage 4 Backend Implementation
+            Authentication Status: Awaiting Stage 4 Backend Implementation
           </div>
           <div style={{ color: 'var(--text-secondary)', fontSize: 13, lineHeight: 1.6 }}>
             {AUTH_AWAITING_MESSAGE}
-            <br />
-            <strong>Accuracy Guarantee:</strong> No fake JWTs, dummy accounts, or simulated user sessions are generated. The form below connects directly to the real FastAPI endpoint to verify backend availability.
+            <div style={{ marginTop: 8, padding: '8px 12px', backgroundColor: 'rgba(0, 0, 0, 0.25)', borderRadius: 'var(--radius-sm)' }}>
+              <strong>Stage Transition Status:</strong> Stage 3 established database models, migrations, and analytics SQL designs. Stage 4 will register <code>POST /api/v1/auth/login</code> and <code>GET /api/v1/auth/me</code> with signed JWT issuance and tenant-scoping middleware.
+            </div>
           </div>
         </div>
       </div>
 
       <div className="grid-2" style={{ marginBottom: 24 }}>
         {/* Real Probe Form */}
-        <Card title={<><LogIn size={18} /> Authentication Probe</>} subtitle="Target: POST /api/v1/auth/login">
+        <Card title={<><LogIn size={18} aria-hidden="true" /> Authentication Probe</>} subtitle="Target: POST /api/v1/auth/login">
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 12 }}>
             <div>
-              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>
+              <label
+                htmlFor="login-username"
+                style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}
+              >
                 Username / Email
               </label>
               <input
+                id="login-username"
                 type="text"
                 value={username}
                 onChange={e => setUsername(e.target.value)}
                 placeholder="merchant@example.com"
                 required
+                autoComplete="username"
                 style={{
                   width: '100%',
                   padding: '9px 12px',
@@ -97,15 +102,20 @@ export const LoginPage: React.FC = () => {
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>
+              <label
+                htmlFor="login-password"
+                style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}
+              >
                 Password
               </label>
               <input
+                id="login-password"
                 type="password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 placeholder="••••••••••••"
                 required
+                autoComplete="current-password"
                 style={{
                   width: '100%',
                   padding: '9px 12px',
@@ -122,6 +132,7 @@ export const LoginPage: React.FC = () => {
             <button
               type="submit"
               disabled={loading}
+              aria-label="Probe backend login endpoint"
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -139,28 +150,32 @@ export const LoginPage: React.FC = () => {
               }}
             >
               {loading ? 'Executing Real Request...' : 'Probe /api/v1/auth/login'}
-              <ArrowRight size={14} />
+              <ArrowRight size={14} aria-hidden="true" />
             </button>
           </form>
 
           {resultMessage && (
-            <div style={{
-              marginTop: 16,
-              padding: 12,
-              borderRadius: 'var(--radius-sm)',
-              fontSize: 12,
-              lineHeight: 1.5,
-              backgroundColor: resultMessage.type === 'error' ? 'var(--danger-bg)' : 'var(--success-bg)',
-              border: `1px solid ${resultMessage.type === 'error' ? 'var(--danger-border)' : 'var(--success-border)'}`,
-              color: resultMessage.type === 'error' ? 'var(--danger)' : 'var(--success)',
-            }}>
+            <div
+              role="status"
+              aria-live="polite"
+              style={{
+                marginTop: 16,
+                padding: 12,
+                borderRadius: 'var(--radius-sm)',
+                fontSize: 12,
+                lineHeight: 1.5,
+                backgroundColor: resultMessage.type === 'error' ? 'var(--danger-bg)' : 'var(--success-bg)',
+                border: `1px solid ${resultMessage.type === 'error' ? 'var(--danger-border)' : 'var(--success-border)'}`,
+                color: resultMessage.type === 'error' ? 'var(--danger)' : 'var(--success)',
+              }}
+            >
               <strong>Result:</strong> {resultMessage.text}
             </div>
           )}
         </Card>
 
         {/* Contract Specification Card */}
-        <Card title={<><Server size={18} /> Planned Auth Contract</>} subtitle="FastAPI Route Specifications">
+        <Card title={<><Server size={18} aria-hidden="true" /> Planned Auth Contract</>} subtitle="FastAPI Route Specifications">
           <div style={{ fontSize: 13, color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12 }}>
             <div>
               <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>
@@ -190,7 +205,7 @@ export const LoginPage: React.FC = () => {
         </Card>
       </div>
 
-      <Card title={<><AlertCircle size={18} /> Role-Based Access Control (RBAC) Architecture</>}>
+      <Card title={<><AlertCircle size={18} aria-hidden="true" /> Role-Based Access Control (RBAC) Architecture</>}>
         <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
           <p style={{ marginBottom: 10 }}>Once Stage 4 auth is implemented in the backend, the frontend will ingest tenant scopes:</p>
           <ul style={{ paddingLeft: 20 }}>
@@ -203,4 +218,3 @@ export const LoginPage: React.FC = () => {
     </div>
   )
 }
-
