@@ -1,56 +1,62 @@
 """
 SQLAlchemy 2.0 Database Connection & Session Management
 AGGRIX MTA Layer
+Unified canonical database connection module preserving both FastAPI dependency
+and standalone context manager / migration capabilities.
 """
 
-from typing import Any, Dict, Generator, Optional, Tuple
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+from collections.abc import Generator
+from contextlib import contextmanager
+from typing import Any, Dict, Optional, Tuple
+from sqlalchemy import Engine, create_engine, text
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import settings
+from app.database.base import Base, metadata
 
 
-# Base class for SQLAlchemy 2.0 declarative models (reserved for future schema models)
-class Base(DeclarativeBase):
-    pass
-
-
-def _get_engine_kwargs() -> Dict[str, Any]:
+def create_database_engine(
+    url: Optional[str] = None,
+    **kwargs: Any,
+) -> Engine:
     """
-    Constructs engine configuration kwargs.
+    Constructs a configured SQLAlchemy 2.0 Engine.
     Applies QueuePool connection pooling for PostgreSQL while avoiding
     unsupported parameters for other dialects (e.g. SQLite in test environments).
+
+    Args:
+        url: Optional explicit database URL overriding application settings.
+        **kwargs: Additional parameters passed to create_engine.
     """
-    kwargs: Dict[str, Any] = {
-        "pool_pre_ping": True,  # Test connection liveness prior to checkout
-        "echo": settings.DB_ECHO,
+    target_url = url or settings.sqlalchemy_database_uri
+    is_sqlite = target_url.startswith("sqlite")
+
+    engine_kwargs: Dict[str, Any] = {
+        "echo": kwargs.pop("echo", settings.DB_ECHO),
     }
 
-    uri = settings.sqlalchemy_database_uri
-    if not uri.startswith("sqlite"):
-        kwargs.update(
+    if not is_sqlite:
+        engine_kwargs.update(
             {
-                "pool_size": settings.DB_POOL_SIZE,
-                "max_overflow": settings.DB_MAX_OVERFLOW,
-                "pool_timeout": settings.DB_POOL_TIMEOUT,
-                "pool_recycle": settings.DB_POOL_RECYCLE,
+                "pool_size": kwargs.pop("pool_size", settings.DB_POOL_SIZE),
+                "max_overflow": kwargs.pop("max_overflow", settings.DB_MAX_OVERFLOW),
+                "pool_timeout": kwargs.pop("pool_timeout", settings.DB_POOL_TIMEOUT),
+                "pool_recycle": kwargs.pop("pool_recycle", settings.DB_POOL_RECYCLE),
+                "pool_pre_ping": kwargs.pop("pool_pre_ping", True),
             }
         )
 
-    return kwargs
+    engine_kwargs.update(kwargs)
+    return create_engine(target_url, **engine_kwargs)
 
 
-# Configure SQLAlchemy 2.0 Engine
-engine = create_engine(
-    settings.sqlalchemy_database_uri,
-    **_get_engine_kwargs(),
-)
-
-# Session factory for generating database sessions
+# Canonical default application engine and session factory
+engine = create_database_engine()
 SessionLocal = sessionmaker(
+    bind=engine,
     autocommit=False,
     autoflush=False,
-    bind=engine,
+    expire_on_commit=False,  # Essential for FastAPI attribute access after commit
 )
 
 
@@ -64,6 +70,26 @@ def get_db() -> Generator[Session, None, None]:
         yield db
     finally:
         db.close()
+
+
+@contextmanager
+def get_db_session(
+    custom_session_factory: Optional[sessionmaker[Session]] = None,
+) -> Generator[Session, None, None]:
+    """
+    Context manager for standalone scripts, migrations, and test helpers.
+    Automatically commits on normal completion or rolls back upon unhandled exception.
+    """
+    factory = custom_session_factory or SessionLocal
+    session = factory()
+    try:
+        yield session
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
 
 
 def check_db_connection(db: Optional[Session] = None) -> Tuple[bool, Optional[str]]:
@@ -80,7 +106,6 @@ def check_db_connection(db: Optional[Session] = None) -> Tuple[bool, Optional[st
         session_created = True
 
     try:
-        # SQLAlchemy 2.0 standard raw query execution
         result = db.execute(text("SELECT 1")).scalar()
         if result == 1:
             return True, None
@@ -90,3 +115,17 @@ def check_db_connection(db: Optional[Session] = None) -> Tuple[bool, Optional[st
     finally:
         if session_created:
             db.close()
+
+
+def check_database_connection(target_engine: Optional[Engine] = None) -> bool:
+    """
+    Perform a quick boolean healthcheck against the database engine.
+    Used by test fixtures and startup probes.
+    """
+    eng = target_engine or engine
+    try:
+        with eng.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        return True
+    except Exception:
+        return False
