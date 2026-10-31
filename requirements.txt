@@ -1,0 +1,9 @@
+# AGGRIX Database Layer Dependencies
+sqlalchemy>=2.0.30,<3.0.0
+alembic>=1.13.0,<2.0.0
+psycopg2-binary>=2.9.9
+pydantic>=2.7.0
+pydantic-settings>=2.2.0
+python-dotenv>=1.0.0
+pytest>=8.0.0
+
