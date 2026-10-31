@@ -1,0 +1,71 @@
+services:
+  # ============================================================================
+  # PostgreSQL Service (Multi-Tenant Storage Layer)
+  # ============================================================================
+  db:
+    image: postgres:16-alpine
+    container_name: aggrix-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-aggrix_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aggrix_password}
+      POSTGRES_DB: ${POSTGRES_DB:-aggrix_db}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-aggrix_user} -d ${POSTGRES_DB:-aggrix_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - aggrix-network
+
+  # ============================================================================
+  # AGGRIX Backend FastAPI Application
+  # ============================================================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: aggrix-backend
+    restart: unless-stopped
+    environment:
+      PROJECT_NAME: ${PROJECT_NAME:-AGGRIX MTA Layer}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      POSTGRES_SERVER: db
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-aggrix_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aggrix_password}
+      POSTGRES_DB: ${POSTGRES_DB:-aggrix_db}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-aggrix_user}:${POSTGRES_PASSWORD:-aggrix_password}@db:5432/${POSTGRES_DB:-aggrix_db}
+      DB_POOL_SIZE: ${DB_POOL_SIZE:-10}
+      DB_MAX_OVERFLOW: ${DB_MAX_OVERFLOW:-20}
+      DB_POOL_TIMEOUT: ${DB_POOL_TIMEOUT:-30}
+      DB_POOL_RECYCLE: ${DB_POOL_RECYCLE:-1800}
+      DB_ECHO: ${DB_ECHO:-false}
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    volumes:
+      - ./backend/app:/app/app
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - aggrix-network
+
+# ==============================================================================
+# Persistent Named Volumes
+# ==============================================================================
+volumes:
+  postgres_data:
+    driver: local
+
+# ==============================================================================
+# Isolated Internal Network
+# ==============================================================================
+networks:
+  aggrix-network:
+    driver: bridge

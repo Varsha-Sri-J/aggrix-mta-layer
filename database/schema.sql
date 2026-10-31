@@ -1,0 +1,15 @@
+-- ==============================================================================
+-- AGGRIX: Multi-Tenant Analytics & Aggregation Engine
+-- Database Schema Definitions
+-- ==============================================================================
+-- NOTE:
+-- This file is reserved for database schema definitions being developed
+-- separately by the database engineering team.
+--
+-- Architectural Boundaries:
+-- * Multi-tenant isolation strategy (schema-per-tenant or tenant_id row-level security)
+-- * Event stream ingestion tables
+-- * Pre-aggregated metrics and timeseries rollups
+--
+-- DO NOT add business models or tables here until team schema design is merged.
+-- ==============================================================================
