@@ -1,0 +1,25 @@
+import React from 'react'
+import { Routes, Route } from 'react-router-dom'
+import { MainLayout } from '../components/layout/MainLayout'
+import { DashboardPage } from '../pages/DashboardPage'
+import { StoresPage } from '../pages/StoresPage'
+import { AnalyticsPage } from '../pages/AnalyticsPage'
+import { HealthPage } from '../pages/HealthPage'
+import { SettingsPage } from '../pages/SettingsPage'
+import { NotFoundPage } from '../pages/NotFoundPage'
+
+export const AppRouter: React.FC = () => {
+  return (
+    <Routes>
+      <Route path="/" element={<MainLayout />}>
+        <Route index element={<DashboardPage />} />
+        <Route path="stores" element={<StoresPage />} />
+        <Route path="analytics" element={<AnalyticsPage />} />
+        <Route path="health" element={<HealthPage />} />
+        <Route path="settings" element={<SettingsPage />} />
+        <Route path="*" element={<NotFoundPage />} />
+      </Route>
+    </Routes>
+  )
+}
+
