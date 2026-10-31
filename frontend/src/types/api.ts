@@ -30,3 +30,46 @@ export interface EndpointSpec {
   responseSchema?: string
 }
 
+export interface ApiRequestOptions extends Omit<RequestInit, 'body'> {
+  baseUrl?: string
+  params?: Record<string, string | number | boolean | undefined | null>
+  body?: unknown
+  token?: string | null
+  signal?: AbortSignal
+}
+
+export interface ApiErrorDetail {
+  message: string
+  status: number
+  statusText: string
+  endpoint: string
+  data?: unknown
+}
+
+export interface LoginCredentials {
+  username: string
+  password: string
+}
+
+export interface AuthTokenResponse {
+  access_token: string
+  token_type: string
+  role?: string
+  tenant_ids?: string[]
+}
+
+export interface UserProfile {
+  id: string
+  email: string
+  role: 'merchant' | 'manager' | 'admin' | string
+  active_tenant_id?: string
+  assigned_tenants?: string[]
+}
+
+export interface AuthState {
+  isAuthenticated: boolean
+  user: UserProfile | null
+  token: string | null
+  backendSupported: boolean
+  statusMessage: string
+}

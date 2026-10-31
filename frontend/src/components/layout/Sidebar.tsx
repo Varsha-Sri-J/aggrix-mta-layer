@@ -7,6 +7,7 @@ import {
   Activity,
   Settings,
   Layers,
+  KeyRound,
   X,
 } from 'lucide-react'
 
@@ -88,6 +89,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         >
           <Settings size={18} />
           <span>System Settings</span>
+        </NavLink>
+
+        <div className="nav-section-title">Security & Access</div>
+        <NavLink
+          to="/login"
+          className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+          onClick={onClose}
+        >
+          <KeyRound size={18} />
+          <span>Auth & RBAC (Stage 4)</span>
         </NavLink>
       </nav>
 

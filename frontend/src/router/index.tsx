@@ -6,6 +6,7 @@ import { StoresPage } from '../pages/StoresPage'
 import { AnalyticsPage } from '../pages/AnalyticsPage'
 import { HealthPage } from '../pages/HealthPage'
 import { SettingsPage } from '../pages/SettingsPage'
+import { LoginPage } from '../pages/LoginPage'
 import { NotFoundPage } from '../pages/NotFoundPage'
 
 export const AppRouter: React.FC = () => {
@@ -16,6 +17,7 @@ export const AppRouter: React.FC = () => {
         <Route path="stores" element={<StoresPage />} />
         <Route path="analytics" element={<AnalyticsPage />} />
         <Route path="health" element={<HealthPage />} />
+        <Route path="login" element={<LoginPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
