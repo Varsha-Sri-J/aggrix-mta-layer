@@ -14,6 +14,7 @@ services:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./docker/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-aggrix_user} -d ${POSTGRES_DB:-aggrix_db}"]
       interval: 5s
@@ -21,7 +22,9 @@ services:
       retries: 5
       start_period: 10s
     networks:
-      - aggrix-network
+      aggrix-network:
+        aliases:
+          - postgres
 
   # ============================================================================
   # AGGRIX Backend FastAPI Application
@@ -40,11 +43,12 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-aggrix_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aggrix_password}
       POSTGRES_DB: ${POSTGRES_DB:-aggrix_db}
-      DATABASE_URL: postgresql://${POSTGRES_USER:-aggrix_user}:${POSTGRES_PASSWORD:-aggrix_password}@db:5432/${POSTGRES_DB:-aggrix_db}
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-aggrix_user}:${POSTGRES_PASSWORD:-aggrix_password}@db:5432/${POSTGRES_DB:-aggrix_db}
       DB_POOL_SIZE: ${DB_POOL_SIZE:-10}
       DB_MAX_OVERFLOW: ${DB_MAX_OVERFLOW:-20}
       DB_POOL_TIMEOUT: ${DB_POOL_TIMEOUT:-30}
       DB_POOL_RECYCLE: ${DB_POOL_RECYCLE:-1800}
+      DB_POOL_PRE_PING: ${DB_POOL_PRE_PING:-true}
       DB_ECHO: ${DB_ECHO:-false}
     ports:
       - "${BACKEND_PORT:-8000}:8000"

@@ -4,6 +4,7 @@ uvicorn[standard]>=0.28.0,<1.0.0
 
 # Database & ORM (SQLAlchemy 2.0)
 sqlalchemy>=2.0.28,<3.0.0
+alembic>=1.13.0,<2.0.0
 psycopg2-binary>=2.9.9,<3.0.0
 
 # Configuration & Data Validation

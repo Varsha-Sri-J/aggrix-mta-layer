@@ -28,7 +28,7 @@ MANIFEST
 
 # Virtual environments
 .env
-.venv
+.venv/
 env/
 venv/
 ENV/
@@ -56,6 +56,7 @@ htmlcov/
 *~
 .DS_Store
 
-# Docker & logs
+# Docker, database volumes & logs
 *.log
 docker-compose.override.yml
+postgres_data/
