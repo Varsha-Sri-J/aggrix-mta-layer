@@ -8,6 +8,8 @@ import {
   Settings,
   Layers,
   KeyRound,
+  Building2,
+  ShieldCheck,
   X,
 } from 'lucide-react'
 
@@ -43,6 +45,34 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       </div>
 
       <nav className="sidebar-nav">
+        <div className="nav-section-title">Role Dashboards</div>
+        <NavLink
+          to="/dashboard/merchant"
+          className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+          onClick={onClose}
+        >
+          <Store size={18} />
+          <span>Merchant Dashboard</span>
+        </NavLink>
+
+        <NavLink
+          to="/dashboard/manager"
+          className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+          onClick={onClose}
+        >
+          <Building2 size={18} />
+          <span>Manager Dashboard</span>
+        </NavLink>
+
+        <NavLink
+          to="/dashboard/admin"
+          className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+          onClick={onClose}
+        >
+          <ShieldCheck size={18} />
+          <span>Platform Admin</span>
+        </NavLink>
+
         <div className="nav-section-title">Operations</div>
         <NavLink
           to="/"

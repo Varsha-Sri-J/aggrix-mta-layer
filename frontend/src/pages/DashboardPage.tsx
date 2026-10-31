@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { Card } from '../components/common/Card'
 import { StatusBadge } from '../components/common/StatusBadge'
+import { RoleSwitcher } from '../components/dashboard/RoleSwitcher'
 import { fetchHealth, fetchRootMeta } from '../services/api'
 import type { HealthResponse, RootMetaResponse, EndpointSpec } from '../types/api'
 
@@ -121,6 +122,7 @@ export const DashboardPage: React.FC = () => {
 
   return (
     <div>
+      <RoleSwitcher />
       <div className="page-header">
         <h1 className="page-title">
           <Layers className="text-accent" size={26} style={{ color: 'var(--accent-primary)' }} />
