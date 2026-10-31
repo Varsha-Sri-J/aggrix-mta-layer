@@ -59,11 +59,13 @@ class Settings(BaseSettings):
         if self.DATABASE_URL:
             uri = self.DATABASE_URL
             if uri.startswith("postgres://"):
-                uri = uri.replace("postgres://", "postgresql://", 1)
+                uri = uri.replace("postgres://", "postgresql+psycopg2://", 1)
+            elif uri.startswith("postgresql://") and not uri.startswith("postgresql+"):
+                uri = uri.replace("postgresql://", "postgresql+psycopg2://", 1)
             return uri
 
         return (
-            f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
+            f"postgresql+psycopg2://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
             f"@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
         )
 
