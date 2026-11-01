@@ -17,6 +17,7 @@ from app.analytics.broadcaster import broadcaster
 from app.api.routes.analytics import router as analytics_router, stream_analytics_events
 from app.api.routes.auth import router as auth_router
 from app.api.routes.health import router as health_router
+from app.api.routes.ingest import router as ingest_router
 from app.api.routes.manager import router as manager_router
 from app.api.routes.platform import router as platform_router
 from app.core.config import settings
@@ -98,6 +99,13 @@ def create_application() -> FastAPI:
         platform_router,
         prefix=f"{settings.API_V1_STR}/analytics/platform",
         tags=["Platform Admin Analytics"],
+    )
+
+    # Register Live Order Ingestion under /api/v1/ingest
+    app.include_router(
+        ingest_router,
+        prefix=f"{settings.API_V1_STR}/ingest",
+        tags=["Order Ingestion"],
     )
 
     # Register SSE stream endpoint alias directly at /api/analytics/stream
