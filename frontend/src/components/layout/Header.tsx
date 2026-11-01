@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react'
-import { Link, useNavigate, useLocation } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Menu, Globe, Server, ShieldAlert, LogOut, User as UserIcon } from 'lucide-react'
 import { env } from '../../config/env'
 import { fetchHealth } from '../../services/api'
-import { authService } from '../../services/authService'
-import type { HealthResponse, UserProfile } from '../../types/api'
+import { useAuth } from '../../context/AuthContext'
+import type { HealthResponse } from '../../types/api'
 
 interface HeaderProps {
   onToggleSidebar: () => void
@@ -13,9 +13,8 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, isSidebarOpen = false }) => {
   const navigate = useNavigate()
-  const location = useLocation()
+  const { user, logout } = useAuth()
   const [health, setHealth] = useState<HealthResponse | null>(null)
-  const [user, setUser] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState<boolean>(true)
 
   useEffect(() => {
@@ -38,17 +37,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, isSidebarOpen =
       }
     }
 
-    const loadUser = async () => {
-      try {
-        const profile = await authService.getCurrentUser()
-        if (isMounted) setUser(profile)
-      } catch {
-        if (isMounted) setUser(null)
-      }
-    }
-
     checkConnection()
-    loadUser()
 
     const interval = setInterval(checkConnection, 15000)
     return () => {
@@ -57,23 +46,8 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, isSidebarOpen =
     }
   }, [])
 
-  useEffect(() => {
-    let isMounted = true
-    authService.getCurrentUser()
-      .then(profile => {
-        if (isMounted) setUser(profile)
-      })
-      .catch(() => {
-        if (isMounted) setUser(null)
-      })
-    return () => {
-      isMounted = false
-    }
-  }, [location.pathname])
-
   const handleLogout = () => {
-    authService.logout()
-    setUser(null)
+    logout()
     navigate('/login')
   }
 

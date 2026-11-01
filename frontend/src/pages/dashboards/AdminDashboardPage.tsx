@@ -84,7 +84,7 @@ export const AdminDashboardPage: React.FC = () => {
   })
 
   const totalTenants = summary?.total_tenants ?? tenants.length
-  const totalOrders = summary?.total_orders ?? 150000
+  const totalOrders = summary?.total_orders ?? 0
 
   return (
     <div>

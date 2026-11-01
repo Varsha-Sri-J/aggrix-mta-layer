@@ -11,7 +11,9 @@ import {
   Building2,
   ShieldCheck,
   X,
+  Lock,
 } from 'lucide-react'
+import { useAuth } from '../../context/AuthContext'
 
 interface SidebarProps {
   isOpen: boolean
@@ -19,6 +21,9 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
+  const { user, isAuthenticated } = useAuth()
+  const role = user?.role
+
   return (
     <aside
       id="app-sidebar"
@@ -50,54 +55,82 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       </div>
 
       <nav className="sidebar-nav" aria-label="Sidebar Menu Links">
+        {/* Role Dashboards - strictly filtered by authenticated role */}
         <div className="nav-section-title">Role Dashboards</div>
-        <NavLink
-          to="/dashboard/merchant"
-          className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
-          onClick={onClose}
-        >
-          <Store size={18} aria-hidden="true" />
-          <span>Merchant Dashboard</span>
-        </NavLink>
 
-        <NavLink
-          to="/dashboard/manager"
-          className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
-          onClick={onClose}
-        >
-          <Building2 size={18} aria-hidden="true" />
-          <span>Manager Dashboard</span>
-        </NavLink>
+        {/* Merchant Dashboard: accessible by Merchant and Admin */}
+        {isAuthenticated && (role === 'merchant' || role === 'admin') && (
+          <NavLink
+            to="/dashboard/merchant"
+            className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+            onClick={onClose}
+          >
+            <Store size={18} aria-hidden="true" />
+            <span>Merchant Dashboard</span>
+          </NavLink>
+        )}
 
-        <NavLink
-          to="/dashboard/admin"
-          className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
-          onClick={onClose}
-        >
-          <ShieldCheck size={18} aria-hidden="true" />
-          <span>Platform Admin</span>
-        </NavLink>
+        {/* Manager Dashboard: accessible by Manager and Admin */}
+        {isAuthenticated && (role === 'manager' || role === 'admin') && (
+          <NavLink
+            to="/dashboard/manager"
+            className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+            onClick={onClose}
+          >
+            <Building2 size={18} aria-hidden="true" />
+            <span>Manager Dashboard</span>
+          </NavLink>
+        )}
 
-        <div className="nav-section-title">Operations</div>
-        <NavLink
-          to="/"
-          className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
-          onClick={onClose}
-        >
-          <LayoutDashboard size={18} aria-hidden="true" />
-          <span>Overview Ledger</span>
-        </NavLink>
+        {/* Platform Admin: strictly accessible by Admin only */}
+        {isAuthenticated && role === 'admin' && (
+          <NavLink
+            to="/dashboard/admin"
+            className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+            onClick={onClose}
+          >
+            <ShieldCheck size={18} aria-hidden="true" />
+            <span>Platform Admin</span>
+          </NavLink>
+        )}
 
-        <NavLink
-          to="/stores"
-          className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
-          onClick={onClose}
-        >
-          <Store size={18} aria-hidden="true" />
-          <span>Tenant Stores</span>
-        </NavLink>
+        {!isAuthenticated && (
+          <div style={{ padding: '8px 12px', fontSize: 12, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Lock size={14} />
+            <span>Sign in to view dashboards</span>
+          </div>
+        )}
 
-        <div className="nav-section-title">Analytics & Intelligence</div>
+        {/* Operations Section */}
+        {isAuthenticated && (
+          <>
+            <div className="nav-section-title">Operations</div>
+
+            {/* Overview ledger for platform admin */}
+            {role === 'admin' && (
+              <NavLink
+                to="/overview"
+                className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+                onClick={onClose}
+              >
+                <LayoutDashboard size={18} aria-hidden="true" />
+                <span>Overview Ledger</span>
+              </NavLink>
+            )}
+
+            <NavLink
+              to="/stores"
+              className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+              onClick={onClose}
+            >
+              <Store size={18} aria-hidden="true" />
+              <span>Tenant Stores</span>
+            </NavLink>
+          </>
+        )}
+
+        {/* Analytics & System Section */}
+        <div className="nav-section-title">Analytics &amp; System</div>
         <NavLink
           to="/analytics"
           className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
@@ -107,7 +140,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           <span>Analytics Engine</span>
         </NavLink>
 
-        <div className="nav-section-title">System & Infrastructure</div>
         <NavLink
           to="/health"
           className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
@@ -117,23 +149,26 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           <span>Health Diagnostics</span>
         </NavLink>
 
-        <NavLink
-          to="/settings"
-          className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
-          onClick={onClose}
-        >
-          <Settings size={18} aria-hidden="true" />
-          <span>System Settings</span>
-        </NavLink>
+        {role === 'admin' && (
+          <NavLink
+            to="/settings"
+            className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+            onClick={onClose}
+          >
+            <Settings size={18} aria-hidden="true" />
+            <span>System Settings</span>
+          </NavLink>
+        )}
 
-        <div className="nav-section-title">Security & Access</div>
+        {/* Authentication Section */}
+        <div className="nav-section-title">Security &amp; Access</div>
         <NavLink
           to="/login"
           className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
           onClick={onClose}
         >
           <KeyRound size={18} aria-hidden="true" />
-          <span>Auth & RBAC (Stage 4)</span>
+          <span>{isAuthenticated ? 'Active Session & RBAC' : 'Sign In Portal'}</span>
         </NavLink>
       </nav>
 
@@ -141,7 +176,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         <div style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>AGGRIX MTA Layer</div>
         <div>Shopify-Inspired Multi-Tenancy</div>
         <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
-          Base: FastAPI + PostgreSQL 16
+          {isAuthenticated ? `Logged in: ${user?.email}` : 'Not authenticated'}
         </div>
       </div>
     </aside>

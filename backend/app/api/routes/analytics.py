@@ -271,6 +271,8 @@ async def stream_analytics_events(
         authorized_tenant_ids = set(assignments)
     elif current_user.role == UserRole.TENANT_USER.value:
         authorized_tenant_ids = {current_user.tenant_id}
+        if tenant_id is None:
+            tenant_id = current_user.tenant_id
     else:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
