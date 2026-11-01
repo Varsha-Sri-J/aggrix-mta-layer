@@ -35,7 +35,7 @@ export const MerchantDashboardPage: React.FC = () => {
   const [tenants, setTenants] = useState<TenantListItem[]>([])
   const [selectedTenantId, setSelectedTenantId] = useState<string>('')
   const [tenantName, setTenantName] = useState<string>('Apex Tech Lab')
-  const [selectedCurrency, setSelectedCurrency] = useState<string>('INR')
+  const [selectedCurrency, setSelectedCurrency] = useState<string>('')
   const [dateFilter, setDateFilter] = useState<'all' | '30d' | '7d'>('all')
 
   // Real Analytics State
@@ -185,16 +185,20 @@ export const MerchantDashboardPage: React.FC = () => {
   })
 
   // Format financial values
+  const activeCurrencySummary = summary?.currencies?.find(c => c.currency === selectedCurrency)
+    ?? summary?.currencies?.[0]
+  const activeCurrency = selectedCurrency || activeCurrencySummary?.currency || summary?.currency || 'USD'
+
   const grossAmount = summary?.gross_sales !== undefined && summary?.gross_sales !== null
     ? Number(summary.gross_sales)
-    : summary?.currencies?.[0]?.gross_sales !== undefined
-    ? Number(summary.currencies[0].gross_sales)
+    : activeCurrencySummary?.gross_sales !== undefined
+    ? Number(activeCurrencySummary.gross_sales)
     : 0
 
   const netAmount = summary?.net_sales !== undefined && summary?.net_sales !== null
     ? Number(summary.net_sales)
-    : summary?.currencies?.[0]?.net_sales !== undefined
-    ? Number(summary.currencies[0].net_sales)
+    : activeCurrencySummary?.net_sales !== undefined
+    ? Number(activeCurrencySummary.net_sales)
     : 0
 
   const totalOrders = summary?.total_orders ?? 0
@@ -442,18 +446,18 @@ export const MerchantDashboardPage: React.FC = () => {
 
         <MetricCard
           title="Gross Turnover"
-          value={`${selectedCurrency} ${grossAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-          unit={selectedCurrency}
+          value={`${activeCurrency} ${grossAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          unit={activeCurrency}
           trend={{ percentage: 6.8, isPositive: true, label: 'financial gross sales' }}
-          subtitle={`Net: ${selectedCurrency} ${netAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          subtitle={`Net: ${activeCurrency} ${netAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
           backendEndpoint="GET /api/v1/analytics/tenants/:id/summary"
           icon={<DollarSign size={18} />}
         />
 
         <MetricCard
           title="Avg Order Value"
-          value={`${selectedCurrency} ${aov.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-          unit={selectedCurrency}
+          value={`${activeCurrency} ${aov.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          unit={activeCurrency}
           trend={{ percentage: 2.1, isPositive: true, label: 'basket size trend' }}
           subtitle="Gross Turnover / Valid Orders"
           icon={<TrendingUp size={18} />}

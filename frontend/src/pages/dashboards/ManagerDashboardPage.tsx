@@ -30,7 +30,7 @@ export const ManagerDashboardPage: React.FC = () => {
   const [stores, setStores] = useState<StorePerformanceRecord[]>([])
   const [comparedStores, setComparedStores] = useState<StorePerformanceRecord[]>([])
   const [selectedTenantIds, setSelectedTenantIds] = useState<string[]>([])
-  const [selectedCurrency, setSelectedCurrency] = useState<string>('INR')
+  const [selectedCurrency, setSelectedCurrency] = useState<string>('')
   const [dateFilter, setDateFilter] = useState<'all' | '30d' | '7d'>('all')
   const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
@@ -167,11 +167,14 @@ export const ManagerDashboardPage: React.FC = () => {
   })
 
   const totalAssigned = summary?.assigned_tenants_count ?? stores.length
+  const activeCurrencySummary = summary?.currencies?.find(c => c.currency === selectedCurrency)
+    ?? summary?.currencies?.[0]
+  const activeCurrency = selectedCurrency || activeCurrencySummary?.currency || summary?.currency || 'USD'
   const totalCombinedOrders = summary?.total_orders ?? stores.reduce((acc, s) => acc + s.total_orders, 0)
   const totalCombinedTurnover = summary?.gross_sales !== undefined && summary?.gross_sales !== null
     ? Number(summary.gross_sales)
-    : summary?.currencies?.[0]?.gross_sales !== undefined
-    ? Number(summary.currencies[0].gross_sales)
+    : activeCurrencySummary?.gross_sales !== undefined
+    ? Number(activeCurrencySummary.gross_sales)
     : stores.reduce((acc, s) => {
         const val = s.gross_sales !== undefined && s.gross_sales !== null ? Number(s.gross_sales) : (s.currencies?.[0]?.gross_sales ? Number(s.currencies[0].gross_sales) : 0)
         return acc + val
@@ -359,8 +362,8 @@ export const ManagerDashboardPage: React.FC = () => {
 
         <MetricCard
           title="Combined Turnover"
-          value={`${selectedCurrency} ${totalCombinedTurnover.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-          unit={selectedCurrency}
+          value={`${activeCurrency} ${totalCombinedTurnover.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          unit={activeCurrency}
           trend={{ percentage: 11.4, isPositive: true, label: 'aggregate gross sales' }}
           subtitle="Segregated currency totals"
           backendEndpoint="GET /api/v1/analytics/manager/summary"
