@@ -12,10 +12,12 @@ import {
 } from 'lucide-react'
 import { Card } from '../components/common/Card'
 import { authService } from '../services/authService'
+import { useAuth } from '../context/AuthContext'
 import type { UserProfile } from '../types/api'
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate()
+  const { login } = useAuth()
   const [username, setUsername] = useState<string>('admin@aggrix.com')
   const [password, setPassword] = useState<string>('AggrixAdmin2026!Secure')
   const [loading, setLoading] = useState<boolean>(false)
@@ -27,10 +29,8 @@ export const LoginPage: React.FC = () => {
     setResultMessage(null)
 
     try {
-      // Connects directly to real POST /api/v1/auth/login
-      const tokenRes = await authService.login({ username: usr, password: pwd })
-      // Retrieve authenticated profile from GET /api/v1/auth/me
-      const profile = await authService.getCurrentUser(tokenRes.access_token)
+      // Connects directly to real POST /api/v1/auth/login via AuthContext
+      const profile = await login({ username: usr, password: pwd })
       setActiveProfile(profile)
 
       setResultMessage({
@@ -47,7 +47,7 @@ export const LoginPage: React.FC = () => {
         } else {
           navigate('/dashboard/merchant')
         }
-      }, 1200)
+      }, 600)
     } catch (err: unknown) {
       setResultMessage({
         type: 'error',
@@ -94,6 +94,7 @@ export const LoginPage: React.FC = () => {
         <div className="grid-3" style={{ marginTop: 12 }}>
           {/* Platform Admin */}
           <button
+            id="demo-login-admin"
             type="button"
             onClick={() => {
               setDemoCredentials('admin@aggrix.com', 'AggrixAdmin2026!Secure')
@@ -122,6 +123,7 @@ export const LoginPage: React.FC = () => {
 
           {/* Store Manager */}
           <button
+            id="demo-login-manager"
             type="button"
             onClick={() => {
               setDemoCredentials('manager@aggrix.com', 'AggrixManager2026!Secure')
@@ -150,6 +152,7 @@ export const LoginPage: React.FC = () => {
 
           {/* Merchant Tenant User */}
           <button
+            id="demo-login-merchant"
             type="button"
             onClick={() => {
               setDemoCredentials('user@apextech.com', 'ApexUserPassword2026!')

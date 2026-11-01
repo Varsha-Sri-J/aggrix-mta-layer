@@ -21,21 +21,29 @@ interface TopProductsTableProps {
 export const TopProductsTable: React.FC<TopProductsTableProps> = ({
   products,
   currency = 'USD',
-  isDemoData = true,
+  isDemoData = false,
 }) => {
   return (
     <Card
       title={
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Package size={18} style={{ color: 'var(--accent-primary)' }} aria-hidden="true" />
-          <span>Top 10 Products by Revenue (Contract A Preview)</span>
+          <span>Top 10 Products by Revenue</span>
         </div>
       }
-      subtitle={`Revenue calculated as SUM(order_items.quantity * order_items.unit_price) scoped strictly to ${currency}`}
+      subtitle={`Product revenue aggregated from daily_product_metrics scoped strictly to ${currency}`}
       action={
         isDemoData ? (
-          <span className="badge-demo">DEMO DATA — NOT LIVE</span>
-        ) : undefined
+          <span className="badge-demo">DEMO DATA</span>
+        ) : (
+          <span
+            className="badge badge-neutral"
+            style={{ fontSize: 10, padding: '2px 7px' }}
+            title="Aggregated from PostgreSQL daily_product_metrics"
+          >
+            POSTGRESQL-BACKED
+          </span>
+        )
       }
     >
       <div style={{ marginTop: 12 }}>

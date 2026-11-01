@@ -60,3 +60,4 @@ htmlcov/
 *.log
 docker-compose.override.yml
 postgres_data/
+scratch/

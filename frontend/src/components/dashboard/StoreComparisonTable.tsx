@@ -19,7 +19,7 @@ interface StoreComparisonTableProps {
 
 export const StoreComparisonTable: React.FC<StoreComparisonTableProps> = ({
   stores,
-  isDemoData = true,
+  isDemoData = false,
 }) => {
   return (
     <Card
@@ -32,8 +32,16 @@ export const StoreComparisonTable: React.FC<StoreComparisonTableProps> = ({
       subtitle="Consolidated multi-store view for assigned Store Manager portfolio"
       action={
         isDemoData ? (
-          <span className="badge-demo">DEMO DATA — NOT LIVE</span>
-        ) : undefined
+          <span className="badge-demo">DEMO DATA</span>
+        ) : (
+          <span
+            className="badge badge-neutral"
+            style={{ fontSize: 10, padding: '2px 7px' }}
+            title="Multi-store comparative metrics for assigned manager scope"
+          >
+            POSTGRESQL-BACKED
+          </span>
+        )
       }
     >
       <div style={{ marginTop: 12 }}>

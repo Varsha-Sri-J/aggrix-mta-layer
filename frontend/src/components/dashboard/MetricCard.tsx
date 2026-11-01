@@ -1,7 +1,13 @@
 import React from 'react'
 import { TrendingUp, TrendingDown, Clock } from 'lucide-react'
 
-interface MetricCardProps {
+export interface DataSourceBadge {
+  text: string
+  variant?: 'live' | 'seeded' | 'benchmark' | 'demo'
+  title?: string
+}
+
+export interface MetricCardProps {
   title: string
   value: string | number
   unit?: string
@@ -12,6 +18,7 @@ interface MetricCardProps {
   }
   subtitle?: string
   isDemoData?: boolean
+  dataSourceBadge?: DataSourceBadge
   backendEndpoint?: string
   icon?: React.ReactNode
 }
@@ -22,10 +29,67 @@ export const MetricCard: React.FC<MetricCardProps> = ({
   unit,
   trend,
   subtitle,
-  isDemoData = true,
+  isDemoData = false,
+  dataSourceBadge,
   backendEndpoint,
   icon,
 }) => {
+  const renderBadge = () => {
+    if (dataSourceBadge) {
+      let badgeClass = 'badge-demo'
+      let customStyle: React.CSSProperties = {}
+
+      switch (dataSourceBadge.variant) {
+        case 'live':
+          badgeClass = 'badge badge-success'
+          customStyle = { fontSize: 10, padding: '2px 7px', fontWeight: 600 }
+          break
+        case 'seeded':
+          badgeClass = 'badge'
+          customStyle = {
+            backgroundColor: 'rgba(56, 189, 248, 0.15)',
+            color: '#38bdf8',
+            border: '1px solid rgba(56, 189, 248, 0.4)',
+            fontSize: 10,
+            padding: '2px 7px',
+            fontWeight: 600,
+          }
+          break
+        case 'benchmark':
+          badgeClass = 'badge'
+          customStyle = {
+            backgroundColor: 'rgba(168, 85, 247, 0.15)',
+            color: '#c084fc',
+            border: '1px solid rgba(168, 85, 247, 0.4)',
+            fontSize: 10,
+            padding: '2px 7px',
+            fontWeight: 600,
+          }
+          break
+        case 'demo':
+        default:
+          badgeClass = 'badge-demo'
+          break
+      }
+
+      return (
+        <span className={badgeClass} style={customStyle} title={dataSourceBadge.title}>
+          {dataSourceBadge.text}
+        </span>
+      )
+    }
+
+    if (isDemoData) {
+      return (
+        <span className="badge-demo" title="Illustrative demo indicator">
+          DEMO INDICATOR
+        </span>
+      )
+    }
+
+    return null
+  }
+
   return (
     <div className="metric-card">
       <div className="metric-header">
@@ -33,11 +97,7 @@ export const MetricCard: React.FC<MetricCardProps> = ({
           {icon && <span style={{ color: 'var(--accent-primary)' }}>{icon}</span>}
           <span className="metric-title">{title}</span>
         </div>
-        {isDemoData && (
-          <span className="badge-demo" title="Demo preview data — awaiting Stage 4 backend API">
-            DEMO DATA
-          </span>
-        )}
+        {renderBadge()}
       </div>
 
       <div className="metric-value-box">
