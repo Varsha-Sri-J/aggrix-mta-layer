@@ -6,11 +6,12 @@ interface CardProps {
   children: React.ReactNode
   className?: string
   action?: React.ReactNode
+  style?: React.CSSProperties
 }
 
-export const Card: React.FC<CardProps> = ({ title, subtitle, children, className = '', action }) => {
+export const Card: React.FC<CardProps> = ({ title, subtitle, children, className = '', action, style }) => {
   return (
-    <div className={`card ${className}`}>
+    <div className={`card ${className}`} style={style}>
       {(title || action) && (
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
           <div>

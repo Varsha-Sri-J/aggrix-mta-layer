@@ -140,13 +140,21 @@ export function isAbortError(err: unknown): boolean {
  * Builds a query string safely from a parameters dictionary.
  */
 function buildQueryString(
-  params?: Record<string, string | number | boolean | undefined | null>
+  params?: Record<string, string | number | boolean | undefined | null | Array<string | number | boolean>>
 ): string {
   if (!params) return ''
   const searchParams = new URLSearchParams()
   for (const [key, value] of Object.entries(params)) {
     if (value !== undefined && value !== null) {
-      searchParams.append(key, String(value))
+      if (Array.isArray(value)) {
+        for (const item of value) {
+          if (item !== undefined && item !== null) {
+            searchParams.append(key, String(item))
+          }
+        }
+      } else {
+        searchParams.append(key, String(value))
+      }
     }
   }
   const queryString = searchParams.toString()

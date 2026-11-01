@@ -42,6 +42,13 @@ class Tenant(Base):
         index=True,
         doc="Unique domain/subdomain representing the store (e.g. store.myshopify.com).",
     )
+    timezone: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        default="UTC",
+        server_default="UTC",
+        doc="Operational reporting timezone for this tenant (e.g. Asia/Kolkata, Europe/Stockholm, UTC).",
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),

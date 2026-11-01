@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AGGRIX | Multi-Tenant Real-Time Analytics & Live Dashboard</title>
+  <meta name="description" content="AGGRIX Multi-Tenant Real-Time Analytics Engine and Live Event-Driven Dashboard powered by Server-Sent Events.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/dashboard.css">
+</head>
+<body class="dark-theme">
+  <!-- Top App Header -->
+  <header class="app-header" id="app-header">
+    <div class="header-left">
+      <div class="brand-logo" id="brand-logo">
+        <div class="logo-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <span class="brand-title">AGGRIX</span>
+          <span class="brand-badge">MTA LIVE</span>
+        </div>
+      </div>
+
+      <!-- Real-Time Stream Status Pill -->
+      <div class="connection-status-pill disconnected" id="connection-status-pill" title="Server-Sent Events Connection Status">
+        <span class="status-dot" id="status-dot"></span>
+        <span class="status-label" id="status-label">Connecting...</span>
+      </div>
+    </div>
+
+    <!-- Center Control Bar: Store Switcher & Filters -->
+    <div class="header-center">
+      <div class="control-group">
+        <label for="tenant-select" class="control-label">Store Scope</label>
+        <div class="select-wrapper">
+          <select id="tenant-select" class="header-select" aria-label="Select Store">
+            <option value="" disabled selected>Loading authorized stores...</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <label class="control-label">Time Window</label>
+        <div class="date-filter-group" id="date-filter-group">
+          <button type="button" class="date-btn" data-range="7d" id="btn-date-7d">7D</button>
+          <button type="button" class="date-btn" data-range="30d" id="btn-date-30d">30D</button>
+          <button type="button" class="date-btn active" data-range="all" id="btn-date-all">All Time</button>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <label for="currency-select" class="control-label">Currency</label>
+        <div class="select-wrapper">
+          <select id="currency-select" class="header-select" aria-label="Filter Currency">
+            <option value="">All Currencies</option>
+            <option value="USD">USD ($)</option>
+            <option value="EUR">EUR (€)</option>
+            <option value="GBP">GBP (£)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Header Right: User Role & Actions -->
+    <div class="header-right">
+      <div class="last-updated-indicator" id="last-updated-indicator">
+        <span class="sync-icon" id="sync-icon">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+          </svg>
+        </span>
+        <span class="last-updated-text" id="last-updated-text">Syncing...</span>
+      </div>
+
+      <div class="user-role-badge" id="user-role-badge">
+        <span class="role-avatar" id="role-avatar">A</span>
+        <span class="role-title" id="role-title">Platform Admin</span>
+      </div>
+
+      <button type="button" class="btn-icon" id="btn-auth-switch" title="Authentication Settings">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+          <circle cx="12" cy="7" r="4"></circle>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Global Toast / Banner Notification -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Main Content Layout -->
+  <main class="dashboard-main" id="dashboard-main">
+    <!-- Quick Stats / KPI Strip -->
+    <section class="kpi-section" aria-label="Key Performance Indicators">
+      <div class="kpi-grid" id="kpi-grid">
+        <!-- KPI 1: Gross Sales -->
+        <article class="kpi-card" id="kpi-card-gross">
+          <div class="kpi-header">
+            <span class="kpi-title">Gross Revenue</span>
+            <div class="kpi-icon icon-emerald">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="1" x2="12" y2="23"></line>
+                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+              </svg>
+            </div>
+          </div>
+          <div class="kpi-value-container">
+            <span class="kpi-value" id="kpi-gross-revenue">$0.00</span>
+            <span class="kpi-live-pill" id="live-indicator-gross">LIVE</span>
+          </div>
+          <div class="kpi-footer">
+            <span class="kpi-caption" id="kpi-gross-caption">Total order value placed</span>
+          </div>
+        </article>
+
+        <!-- KPI 2: Net Sales -->
+        <article class="kpi-card" id="kpi-card-net">
+          <div class="kpi-header">
+            <span class="kpi-title">Recognized Net Sales</span>
+            <div class="kpi-icon icon-cyan">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+                <polyline points="17 6 23 6 23 12"></polyline>
+              </svg>
+            </div>
+          </div>
+          <div class="kpi-value-container">
+            <span class="kpi-value" id="kpi-net-sales">$0.00</span>
+          </div>
+          <div class="kpi-footer">
+            <span class="kpi-caption" id="kpi-net-caption">Paid & fulfilled orders</span>
+          </div>
+        </article>
+
+        <!-- KPI 3: Total Orders -->
+        <article class="kpi-card" id="kpi-card-orders">
+          <div class="kpi-header">
+            <span class="kpi-title">Total Orders</span>
+            <div class="kpi-icon icon-indigo">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="9" cy="21" r="1"></circle>
+                <circle cx="20" cy="21" r="1"></circle>
+                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+              </svg>
+            </div>
+          </div>
+          <div class="kpi-value-container">
+            <span class="kpi-value" id="kpi-total-orders">0</span>
+          </div>
+          <div class="kpi-footer">
+            <span class="kpi-caption" id="kpi-orders-caption">All processed transactions</span>
+          </div>
+        </article>
+
+        <!-- KPI 4: Average Order Value -->
+        <article class="kpi-card" id="kpi-card-aov">
+          <div class="kpi-header">
+            <span class="kpi-title">Average Order Value</span>
+            <div class="kpi-icon icon-purple">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+                <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+              </svg>
+            </div>
+          </div>
+          <div class="kpi-value-container">
+            <span class="kpi-value" id="kpi-aov">$0.00</span>
+          </div>
+          <div class="kpi-footer">
+            <span class="kpi-caption" id="kpi-aov-caption">Gross revenue per order</span>
+          </div>
+        </article>
+
+        <!-- KPI 5: Active Customers -->
+        <article class="kpi-card" id="kpi-card-customers">
+          <div class="kpi-header">
+            <span class="kpi-title">Active Customers</span>
+            <div class="kpi-icon icon-amber">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+              </svg>
+            </div>
+          </div>
+          <div class="kpi-value-container">
+            <span class="kpi-value" id="kpi-active-customers">0</span>
+          </div>
+          <div class="kpi-footer">
+            <span class="kpi-caption" id="kpi-customers-caption">Unique purchasing buyers</span>
+          </div>
+        </article>
+
+        <!-- KPI 6: Pending Pipeline -->
+        <article class="kpi-card" id="kpi-card-pending">
+          <div class="kpi-header">
+            <span class="kpi-title">Pending Orders</span>
+            <div class="kpi-icon icon-rose">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+            </div>
+          </div>
+          <div class="kpi-value-container">
+            <span class="kpi-value" id="kpi-pending-orders">0</span>
+            <span class="kpi-subtext" id="kpi-pending-amount">($0.00)</span>
+          </div>
+          <div class="kpi-footer">
+            <span class="kpi-caption" id="kpi-pending-caption">Awaiting payment capture</span>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- Main Analytics Grids -->
+    <div class="dashboard-grid">
+      <!-- Left Column: Trends and Visualizations -->
+      <div class="grid-col-left">
+        <!-- Revenue Trend Chart Panel -->
+        <section class="panel-card" id="panel-revenue-trend">
+          <div class="panel-header">
+            <div class="panel-title-group">
+              <h2 class="panel-title">Revenue Trajectory</h2>
+              <span class="panel-subtitle">Daily gross sales volume over selected horizon</span>
+            </div>
+            <div class="chart-legend" id="revenue-chart-legend">
+              <span class="legend-item"><span class="legend-color color-gross"></span> Gross Sales</span>
+              <span class="legend-item"><span class="legend-color color-net"></span> Net Sales</span>
+            </div>
+          </div>
+          <div class="chart-body" id="chart-revenue-container">
+            <div class="chart-loading-state" id="chart-revenue-loading">
+              <div class="spinner"></div>
+              <span>Rendering timeline...</span>
+            </div>
+            <svg id="svg-revenue-chart" class="svg-chart" viewBox="0 0 800 260" preserveAspectRatio="none"></svg>
+          </div>
+        </section>
+
+        <!-- Two-up Grid: Status Breakdown + Volume Trends -->
+        <div class="two-up-grid">
+          <!-- Order Status Distribution -->
+          <section class="panel-card" id="panel-status-dist">
+            <div class="panel-header">
+              <div class="panel-title-group">
+                <h2 class="panel-title">Order Lifecycle Distribution</h2>
+                <span class="panel-subtitle">Breakdown by current order state</span>
+              </div>
+            </div>
+            <div class="status-dist-container">
+              <div class="donut-chart-wrapper" id="status-donut-wrapper">
+                <svg id="svg-status-donut" class="donut-chart" viewBox="0 0 200 200"></svg>
+                <div class="donut-center-metric">
+                  <span class="donut-total-count" id="donut-total-orders">0</span>
+                  <span class="donut-total-label">Orders</span>
+                </div>
+              </div>
+              <div class="status-legend-list" id="status-legend-list">
+                <!-- Dynamically populated status rows -->
+              </div>
+            </div>
+          </section>
+
+          <!-- Top-Performing Products -->
+          <section class="panel-card" id="panel-top-products">
+            <div class="panel-header">
+              <div class="panel-title-group">
+                <h2 class="panel-title">Top Products</h2>
+                <span class="panel-subtitle">Ranked by gross sales volume</span>
+              </div>
+            </div>
+            <div class="top-products-list" id="top-products-list">
+              <div class="empty-state" id="top-products-empty">Loading product metrics...</div>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <!-- Right Column: Live Event Stream & Activity Feed -->
+      <aside class="grid-col-right" aria-label="Live Event Activity">
+        <section class="panel-card feed-panel" id="panel-live-feed">
+          <div class="panel-header">
+            <div class="panel-title-group">
+              <div class="feed-title-line">
+                <span class="live-pulse-dot"></span>
+                <h2 class="panel-title">Live Activity Stream</h2>
+              </div>
+              <span class="panel-subtitle">Transactional Outbox events streamed via SSE</span>
+            </div>
+            <div class="feed-counter-badge" id="feed-counter-badge">
+              <span id="feed-event-count">0</span> events
+            </div>
+          </div>
+
+          <!-- Live Feed List -->
+          <div class="feed-scroll-container" id="recent-orders-feed">
+            <div class="feed-empty-state" id="feed-empty-state">
+              <div class="pulse-ring"></div>
+              <p>Listening for real-time transactions...</p>
+              <span class="feed-subtext">Events from outbox worker will appear immediately</span>
+            </div>
+          </div>
+        </section>
+      </aside>
+    </div>
+  </main>
+
+  <!-- Authentication Modal -->
+  <div class="modal-backdrop hidden" id="auth-modal-backdrop">
+    <div class="auth-modal" id="auth-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="modal-header">
+        <h3 class="modal-title" id="modal-title">AGGRIX Engine Authentication</h3>
+        <button type="button" class="btn-close" id="btn-close-modal" aria-label="Close modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-desc">
+          Sign in or enter a JWT bearer token to access multi-tenant analytics and establish your authorized real-time SSE stream.
+        </p>
+
+        <!-- Quick Login Tabs -->
+        <div class="auth-tabs">
+          <button type="button" class="tab-btn active" id="tab-btn-login">Direct Login</button>
+          <button type="button" class="tab-btn" id="tab-btn-token">Token String</button>
+        </div>
+
+        <form id="form-login" class="auth-form">
+          <div class="form-group">
+            <label for="login-email">Email Address</label>
+            <input type="email" id="login-email" class="form-input" placeholder="admin@aggrix.local" required autocomplete="username">
+          </div>
+          <div class="form-group">
+            <label for="login-password">Password</label>
+            <input type="password" id="login-password" class="form-input" placeholder="••••••••••••" required autocomplete="current-password">
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn-primary" id="btn-submit-login">Sign In</button>
+          </div>
+        </form>
+
+        <form id="form-token" class="auth-form hidden">
+          <div class="form-group">
+            <label for="raw-token-input">JWT Bearer Token</label>
+            <textarea id="raw-token-input" class="form-textarea" rows="4" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."></textarea>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn-primary" id="btn-submit-token">Apply Token</button>
+          </div>
+        </form>
+
+        <div class="demo-credentials-box">
+          <span class="demo-title">Role Permissions Guide:</span>
+          <ul class="demo-list">
+            <li><strong>Platform Admin:</strong> Unrestricted visibility across all 25 tenant stores.</li>
+            <li><strong>Multi-Store Manager:</strong> Filtered visibility across assigned stores.</li>
+            <li><strong>Tenant User:</strong> Strict single-store isolation (no cross-tenant visibility).</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="/static/js/charts.js"></script>
+  <script src="/static/js/dashboard.js"></script>
+</body>
+</html>

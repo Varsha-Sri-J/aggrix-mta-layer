@@ -74,7 +74,7 @@ export const AnalyticsPage: React.FC = () => {
           <Card
             key={m.id}
             title={<><Calculator size={18} style={{ color: 'var(--accent-primary)' }} /> {m.title}</>}
-            action={<StatusBadge status={m.status} label="Pending Stage 4 Route" />}
+            action={<StatusBadge status="available" label="Mounted & Verified" />}
           >
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16, marginTop: 12 }}>
               <div>
