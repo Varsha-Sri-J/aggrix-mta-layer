@@ -25,6 +25,36 @@ export const AUTH_AWAITING_MESSAGE =
   'Authentication is awaiting Stage 4 backend implementation. The endpoints POST /api/v1/auth/login and GET /api/v1/auth/me are not yet registered on the FastAPI backend.'
 
 /**
+ * Maps canonical backend RBAC roles to frontend UI persona routes:
+ * - platform_admin -> admin
+ * - store_manager  -> manager
+ * - tenant_user    -> merchant
+ */
+export function mapBackendRoleToFrontend(backendRole?: string | null): 'merchant' | 'manager' | 'admin' {
+  if (!backendRole) return 'merchant'
+  const normalized = backendRole.toLowerCase().trim()
+  if (normalized === 'platform_admin' || normalized === 'admin') return 'admin'
+  if (normalized === 'store_manager' || normalized === 'manager') return 'manager'
+  if (normalized === 'tenant_user' || normalized === 'merchant') return 'merchant'
+  return 'merchant'
+}
+
+/**
+ * Maps frontend UI persona roles to canonical backend RBAC roles:
+ * - admin    -> platform_admin
+ * - manager  -> store_manager
+ * - merchant -> tenant_user
+ */
+export function mapFrontendRoleToBackend(frontendRole?: string | null): string {
+  if (!frontendRole) return 'tenant_user'
+  const normalized = frontendRole.toLowerCase().trim()
+  if (normalized === 'admin') return 'platform_admin'
+  if (normalized === 'manager') return 'store_manager'
+  if (normalized === 'merchant') return 'tenant_user'
+  return normalized
+}
+
+/**
  * Retrieves the stored JWT token, if any.
  */
 export function getStoredToken(): string | null {
@@ -93,6 +123,8 @@ export async function login(credentials: LoginCredentials): Promise<AuthTokenRes
 
 /**
  * Fetches the current authenticated user profile from GET /api/v1/auth/me.
+ * Seamlessly normalizes backend enterprise roles (platform_admin, store_manager, tenant_user)
+ * into frontend dashboard personas (admin, manager, merchant).
  */
 export async function getCurrentUser(tokenOverride?: string | null): Promise<UserProfile> {
   const token = tokenOverride ?? getStoredToken()
@@ -101,7 +133,20 @@ export async function getCurrentUser(tokenOverride?: string | null): Promise<Use
   }
 
   try {
-    return await apiClient.get<UserProfile>('/api/v1/auth/me', { token })
+    const raw = await apiClient.get<Record<string, any>>('/api/v1/auth/me', { token })
+    const normalizedRole = mapBackendRoleToFrontend(raw.role)
+    const activeTenant = raw.active_tenant_id ?? raw.tenant_id ?? (Array.isArray(raw.assigned_tenants) && raw.assigned_tenants[0] ? raw.assigned_tenants[0] : (Array.isArray(raw.assigned_tenant_ids) && raw.assigned_tenant_ids[0] ? raw.assigned_tenant_ids[0] : null))
+    const assignedTenants = raw.assigned_tenants ?? raw.assigned_tenant_ids ?? (raw.tenant_id ? [raw.tenant_id] : [])
+
+    return {
+      id: raw.id,
+      email: raw.email,
+      full_name: raw.full_name,
+      role: normalizedRole,
+      raw_role: raw.role,
+      active_tenant_id: activeTenant,
+      assigned_tenants: assignedTenants,
+    }
   } catch (err: unknown) {
     if (err instanceof NotFoundError) {
       throw new Error(
@@ -129,6 +174,8 @@ export const authService = {
   getStoredToken,
   setStoredToken,
   getInitialAuthState,
+  mapBackendRoleToFrontend,
+  mapFrontendRoleToBackend,
   AUTH_AWAITING_MESSAGE,
 }
 

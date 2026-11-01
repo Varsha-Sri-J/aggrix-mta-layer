@@ -6,6 +6,8 @@ import {
   getInitialAuthState,
   AUTH_TOKEN_KEY,
   AUTH_AWAITING_MESSAGE,
+  mapBackendRoleToFrontend,
+  mapFrontendRoleToBackend,
 } from '../authService'
 
 describe('Authentication Readiness Service', () => {
@@ -145,5 +147,17 @@ describe('Authentication Readiness Service', () => {
     localStorage.setItem(AUTH_TOKEN_KEY, 'sample-token-to-clear')
     logout()
     expect(localStorage.getItem(AUTH_TOKEN_KEY)).toBeNull()
+  })
+
+  it('correctly maps canonical backend roles to frontend personas and vice versa', () => {
+    expect(mapBackendRoleToFrontend('platform_admin')).toBe('admin')
+    expect(mapBackendRoleToFrontend('store_manager')).toBe('manager')
+    expect(mapBackendRoleToFrontend('tenant_user')).toBe('merchant')
+    expect(mapBackendRoleToFrontend('ADMIN')).toBe('admin')
+    expect(mapBackendRoleToFrontend('unknown')).toBe('merchant')
+
+    expect(mapFrontendRoleToBackend('admin')).toBe('platform_admin')
+    expect(mapFrontendRoleToBackend('manager')).toBe('store_manager')
+    expect(mapFrontendRoleToBackend('merchant')).toBe('tenant_user')
   })
 })

@@ -1,28 +1,53 @@
 import React, { useState } from 'react'
-import { LogIn, ShieldAlert, KeyRound, Server, AlertCircle, ArrowRight } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import {
+  LogIn,
+  ShieldCheck,
+  KeyRound,
+  Server,
+  ArrowRight,
+  UserCheck,
+  Building2,
+  Store,
+} from 'lucide-react'
 import { Card } from '../components/common/Card'
-import { StatusBadge } from '../components/common/StatusBadge'
-import { authService, AUTH_AWAITING_MESSAGE } from '../services/authService'
-import { env } from '../config/env'
+import { authService } from '../services/authService'
+import type { UserProfile } from '../types/api'
 
 export const LoginPage: React.FC = () => {
-  const [username, setUsername] = useState<string>('')
-  const [password, setPassword] = useState<string>('')
+  const navigate = useNavigate()
+  const [username, setUsername] = useState<string>('admin@aggrix.com')
+  const [password, setPassword] = useState<string>('AggrixAdmin2026!Secure')
   const [loading, setLoading] = useState<boolean>(false)
-  const [resultMessage, setResultMessage] = useState<{ type: 'error' | 'info'; text: string } | null>(null)
+  const [resultMessage, setResultMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null)
+  const [activeProfile, setActiveProfile] = useState<UserProfile | null>(null)
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleLogin = async (usr: string, pwd: string) => {
     setLoading(true)
     setResultMessage(null)
 
     try {
-      // Connects directly to the real endpoint POST /api/v1/auth/login
-      await authService.login({ username, password })
+      // Connects directly to real POST /api/v1/auth/login
+      const tokenRes = await authService.login({ username: usr, password: pwd })
+      // Retrieve authenticated profile from GET /api/v1/auth/me
+      const profile = await authService.getCurrentUser(tokenRes.access_token)
+      setActiveProfile(profile)
+
       setResultMessage({
-        type: 'info',
-        text: 'Login succeeded. JWT token stored.',
+        type: 'success',
+        text: `Authenticated successfully as ${profile.email} [Role: ${profile.role}]. Redirecting to dashboard...`,
       })
+
+      // Route dynamically to appropriate role dashboard
+      setTimeout(() => {
+        if (profile.role === 'admin') {
+          navigate('/dashboard/admin')
+        } else if (profile.role === 'manager') {
+          navigate('/dashboard/manager')
+        } else {
+          navigate('/dashboard/merchant')
+        }
+      }, 1200)
     } catch (err: unknown) {
       setResultMessage({
         type: 'error',
@@ -33,59 +58,143 @@ export const LoginPage: React.FC = () => {
     }
   }
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    handleLogin(username, password)
+  }
+
+  const setDemoCredentials = (usr: string, pwd: string) => {
+    setUsername(usr)
+    setPassword(pwd)
+  }
+
   return (
-    <div style={{ maxWidth: 780, margin: '0 auto' }}>
+    <div style={{ maxWidth: 840, margin: '0 auto' }}>
       <div className="page-header">
         <h1 className="page-title">
           <KeyRound size={26} style={{ color: 'var(--accent-primary)' }} aria-hidden="true" />
-          Authentication & RBAC Readiness
+          Authentication & RBAC Portal
         </h1>
         <p className="page-description">
-          FastAPI authentication abstraction and token readiness for merchant, manager, and admin roles
+          FastAPI JWT authentication, role verification, and tenant scoping for merchant, manager, and admin roles
         </p>
       </div>
 
-      {/* Prominent Architectural Banner */}
-      <div
-        className="demo-banner"
-        role="alert"
-        style={{
-          borderLeft: '4px solid var(--warning)',
-          padding: '18px 22px',
-          marginBottom: 24,
-        }}
+      {/* Demo Credentials Quick-Selection Pills */}
+      <Card
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <UserCheck size={18} style={{ color: 'var(--accent-primary)' }} />
+            <span>Select Verified Database Persona</span>
+          </div>
+        }
+        subtitle="One-click demo credentials for verified accounts in the PostgreSQL database"
+        style={{ marginBottom: 24 }}
       >
-        <ShieldAlert size={24} style={{ color: 'var(--warning)', flexShrink: 0, marginTop: 2 }} aria-hidden="true" />
-        <div>
-          <div style={{ fontWeight: 700, color: '#ffffff', fontSize: 14, marginBottom: 4 }}>
-            Authentication Status: Awaiting Stage 4 Backend Implementation
-          </div>
-          <div style={{ color: 'var(--text-secondary)', fontSize: 13, lineHeight: 1.6 }}>
-            {AUTH_AWAITING_MESSAGE}
-            <div style={{ marginTop: 8, padding: '8px 12px', backgroundColor: 'rgba(0, 0, 0, 0.25)', borderRadius: 'var(--radius-sm)' }}>
-              <strong>Stage Transition Status:</strong> Stage 3 established database models, migrations, and analytics SQL designs. Stage 4 will register <code>POST /api/v1/auth/login</code> and <code>GET /api/v1/auth/me</code> with signed JWT issuance and tenant-scoping middleware.
+        <div className="grid-3" style={{ marginTop: 12 }}>
+          {/* Platform Admin */}
+          <button
+            type="button"
+            onClick={() => {
+              setDemoCredentials('admin@aggrix.com', 'AggrixAdmin2026!Secure')
+              handleLogin('admin@aggrix.com', 'AggrixAdmin2026!Secure')
+            }}
+            style={{
+              padding: '14px',
+              backgroundColor: 'var(--bg-primary)',
+              border: '1px solid var(--border-color)',
+              borderRadius: 'var(--radius-sm)',
+              cursor: 'pointer',
+              textAlign: 'left',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 6,
+              transition: 'border-color 0.2s',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <ShieldCheck size={16} style={{ color: 'var(--accent-primary)' }} />
+              <strong style={{ color: '#ffffff', fontSize: 13 }}>Platform Admin</strong>
             </div>
-          </div>
+            <code style={{ fontSize: 11, color: 'var(--text-secondary)' }}>admin@aggrix.com</code>
+            <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Global Tenant Governance</span>
+          </button>
+
+          {/* Store Manager */}
+          <button
+            type="button"
+            onClick={() => {
+              setDemoCredentials('manager@aggrix.com', 'AggrixManager2026!Secure')
+              handleLogin('manager@aggrix.com', 'AggrixManager2026!Secure')
+            }}
+            style={{
+              padding: '14px',
+              backgroundColor: 'var(--bg-primary)',
+              border: '1px solid var(--border-color)',
+              borderRadius: 'var(--radius-sm)',
+              cursor: 'pointer',
+              textAlign: 'left',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 6,
+              transition: 'border-color 0.2s',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Building2 size={16} style={{ color: 'var(--warning)' }} />
+              <strong style={{ color: '#ffffff', fontSize: 13 }}>Store Manager</strong>
+            </div>
+            <code style={{ fontSize: 11, color: 'var(--text-secondary)' }}>manager@aggrix.com</code>
+            <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>3 Assigned Store Portfolios</span>
+          </button>
+
+          {/* Merchant Tenant User */}
+          <button
+            type="button"
+            onClick={() => {
+              setDemoCredentials('user@apextech.com', 'ApexUserPassword2026!')
+              handleLogin('user@apextech.com', 'ApexUserPassword2026!')
+            }}
+            style={{
+              padding: '14px',
+              backgroundColor: 'var(--bg-primary)',
+              border: '1px solid var(--border-color)',
+              borderRadius: 'var(--radius-sm)',
+              cursor: 'pointer',
+              textAlign: 'left',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 6,
+              transition: 'border-color 0.2s',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Store size={16} style={{ color: 'var(--success)' }} />
+              <strong style={{ color: '#ffffff', fontSize: 13 }}>Merchant User</strong>
+            </div>
+            <code style={{ fontSize: 11, color: 'var(--text-secondary)' }}>user@apextech.com</code>
+            <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Store: Apex Tech Lab</span>
+          </button>
         </div>
-      </div>
+      </Card>
 
       <div className="grid-2" style={{ marginBottom: 24 }}>
-        {/* Real Probe Form */}
-        <Card title={<><LogIn size={18} aria-hidden="true" /> Authentication Probe</>} subtitle="Target: POST /api/v1/auth/login">
+        {/* Real Login Form */}
+        <Card title={<><LogIn size={18} aria-hidden="true" /> Live Authentication Form</>} subtitle="Target: POST /api/v1/auth/login">
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 12 }}>
             <div>
               <label
                 htmlFor="login-username"
                 style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}
               >
-                Username / Email
+                Email / Username
               </label>
               <input
                 id="login-username"
                 type="text"
                 value={username}
                 onChange={e => setUsername(e.target.value)}
-                placeholder="merchant@example.com"
+                placeholder="admin@aggrix.com"
                 required
                 autoComplete="username"
                 style={{
@@ -132,7 +241,7 @@ export const LoginPage: React.FC = () => {
             <button
               type="submit"
               disabled={loading}
-              aria-label="Probe backend login endpoint"
+              aria-label="Sign In via backend login endpoint"
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -147,9 +256,10 @@ export const LoginPage: React.FC = () => {
                 marginTop: 6,
                 cursor: loading ? 'not-allowed' : 'pointer',
                 opacity: loading ? 0.7 : 1,
+                border: 'none',
               }}
             >
-              {loading ? 'Executing Real Request...' : 'Probe /api/v1/auth/login'}
+              {loading ? 'Authenticating...' : 'Sign In with JWT'}
               <ArrowRight size={14} aria-hidden="true" />
             </button>
           </form>
@@ -169,52 +279,63 @@ export const LoginPage: React.FC = () => {
                 color: resultMessage.type === 'error' ? 'var(--danger)' : 'var(--success)',
               }}
             >
-              <strong>Result:</strong> {resultMessage.text}
+              <strong>{resultMessage.type === 'error' ? 'Error:' : 'Success:'}</strong> {resultMessage.text}
             </div>
           )}
         </Card>
 
-        {/* Contract Specification Card */}
-        <Card title={<><Server size={18} aria-hidden="true" /> Planned Auth Contract</>} subtitle="FastAPI Route Specifications">
+        {/* Live Active Profile Card */}
+        <Card title={<><Server size={18} aria-hidden="true" /> Active Identity Profile</>} subtitle="GET /api/v1/auth/me Response">
           <div style={{ fontSize: 13, color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12 }}>
             <div>
-              <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>
-                1. Token Generation (POST)
-              </div>
-              <div className="code-box">POST {env.apiBaseUrl}/api/v1/auth/login</div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
-                Payload: <code>{'{ username, password }'}</code>
-              </div>
+              <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: 2 }}>Current Token:</div>
+              <code style={{ fontSize: 11, color: '#38bdf8', wordBreak: 'break-all' }}>
+                {authService.getStoredToken() ? `${authService.getStoredToken()?.slice(0, 48)}...` : 'No token stored'}
+              </code>
             </div>
 
-            <div>
-              <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>
-                2. Current Identity Context (GET)
+            {activeProfile ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: 12, backgroundColor: 'var(--bg-primary)', borderRadius: 'var(--radius-sm)' }}>
+                <div><strong>Email:</strong> {activeProfile.email}</div>
+                <div><strong>Frontend Persona:</strong> <span className="badge badge-success">{activeProfile.role}</span></div>
+                <div><strong>Raw Backend Role:</strong> <code>{activeProfile.raw_role}</code></div>
+                {activeProfile.active_tenant_id && (
+                  <div><strong>Active Tenant:</strong> <code>{activeProfile.active_tenant_id}</code></div>
+                )}
+                {activeProfile.assigned_tenants && activeProfile.assigned_tenants.length > 0 && (
+                  <div><strong>Assigned Stores:</strong> {activeProfile.assigned_tenants.length} tenants</div>
+                )}
               </div>
-              <div className="code-box">GET {env.apiBaseUrl}/api/v1/auth/me</div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
-                Header: <code>Authorization: Bearer &lt;token&gt;</code>
-              </div>
-            </div>
+            ) : (
+              <p style={{ color: 'var(--text-muted)', fontSize: 12 }}>
+                Sign in using one of the credentials above to inspect the live decoded token payload and tenant associations.
+              </p>
+            )}
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 8, borderTop: '1px solid var(--border-color)' }}>
-              <span style={{ color: 'var(--text-muted)' }}>Status:</span>
-              <StatusBadge status="planned" label="Stage 4 Target" />
+            <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: 10 }}>
+              <button
+                type="button"
+                onClick={() => {
+                  authService.logout()
+                  setActiveProfile(null)
+                  setResultMessage({ type: 'success', text: 'Logged out. Token cleared.' })
+                }}
+                style={{
+                  padding: '6px 12px',
+                  backgroundColor: 'transparent',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: 'var(--radius-sm)',
+                  color: 'var(--text-muted)',
+                  fontSize: 12,
+                  cursor: 'pointer',
+                }}
+              >
+                Clear Token (Logout)
+              </button>
             </div>
           </div>
         </Card>
       </div>
-
-      <Card title={<><AlertCircle size={18} aria-hidden="true" /> Role-Based Access Control (RBAC) Architecture</>}>
-        <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-          <p style={{ marginBottom: 10 }}>Once Stage 4 auth is implemented in the backend, the frontend will ingest tenant scopes:</p>
-          <ul style={{ paddingLeft: 20 }}>
-            <li><strong>Merchant Role:</strong> Scoped strictly to single assigned <code>active_tenant_id</code>. All analytics requests automatically bind this UUID.</li>
-            <li><strong>Manager Role:</strong> Scoped to multiple store UUIDs (<code>assigned_tenants: [UUID]</code>) with access to <code>/api/v1/analytics/manager/*</code>.</li>
-            <li><strong>Platform Admin:</strong> Granted <code>admin:global</code> scope for platform-wide health monitoring.</li>
-          </ul>
-        </div>
-      </Card>
     </div>
   )
 }
