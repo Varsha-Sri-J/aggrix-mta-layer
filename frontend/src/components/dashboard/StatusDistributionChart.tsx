@@ -16,7 +16,7 @@ interface StatusDistributionChartProps {
 
 export const StatusDistributionChart: React.FC<StatusDistributionChartProps> = ({
   data,
-  isDemoData = true,
+  isDemoData = false,
 }) => {
   const total = data.reduce((acc, curr) => acc + curr.count, 0)
 
@@ -31,8 +31,16 @@ export const StatusDistributionChart: React.FC<StatusDistributionChartProps> = (
       subtitle="Provisional sales recognition: 'paid' and 'fulfilled' contribute to turnover"
       action={
         isDemoData ? (
-          <span className="badge-demo">DEMO DATA — NOT LIVE</span>
-        ) : undefined
+          <span className="badge-demo">DEMO DATA</span>
+        ) : (
+          <span
+            className="badge badge-neutral"
+            style={{ fontSize: 10, padding: '2px 7px' }}
+            title="Aggregated order lifecycle statuses from PostgreSQL"
+          >
+            POSTGRESQL-BACKED
+          </span>
+        )
       }
     >
       <div style={{ marginTop: 8 }} role="region" aria-label="Order status breakdown visualization">

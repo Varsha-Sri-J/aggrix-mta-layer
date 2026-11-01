@@ -33,6 +33,34 @@ AGGRIX is a high-performance multi-tenant analytics layer for modern e-commerce 
 
 ---
 
+## 1.1 Data Source Categorization & Transparency
+
+To ensure absolute transparency during evaluations, AGGRIX data is explicitly categorized into three distinct tiers:
+
+| Data Category | Implementation & Source | Status & Capabilities |
+| :--- | :--- | :--- |
+| **Historical Seeded Baseline** | 150,000 realistic orders across 25 tenants, 12,500 customers, 2,500 products | **Active in PostgreSQL**; precomputed in `daily_tenant_metrics` and `daily_product_metrics`. Verified $0.00 financial variance. |
+| **Live API-Ingested Orders** | New transactions submitted via `POST /api/v1/ingest/orders` or batch endpoint | **Active & Live**; validated, committed to `orders`, published to `outbox_events`, processed by worker in <1s, and broadcast to all 3 dashboards via SSE. |
+| **External Live Integrations** (Shopify, Stripe) | Direct webhook connectors to third-party merchant platforms | **Planned Connectors** (Not Connected in this Demo); transactions currently ingest through the authenticated API Gateway. |
+
+> **Presentation Note**: All three dashboards (Merchant, Manager, Admin) seamlessly combine the historical baseline with live API-ingested transactions, proving both high-volume analytics performance and sub-second live aggregation.
+
+---
+
+## 1.2 The 7-Minute AGGRIX Hackathon Presentation Flow
+
+| Step | Time | Screen & Persona | Key Demonstration Points |
+| :--- | :--- | :--- | :--- |
+| **1. Introduce Problem** | 30s | Title / Architecture | "Businesses receive orders from multiple stores and channels. AGGRIX provides a multi-tenant analytics layer that collects transactional data, processes it incrementally, and gives different users the analytics they are authorized to see." |
+| **2. Merchant Login** | 1 min | `user@apextech.com` (`/dashboard/merchant`) | Show tenant identity (Apex Tech Lab), orders, gross sales, precomputed daily trends, top products. Explain that historical figures are seeded data while new orders reflect via live rollups. |
+| **3. Live Order Ingestion** | 2 min | Terminal / API & Dashboard | Submit a new order via `POST /api/v1/ingest/orders`. Highlight lifecycle: API Ingestion → PostgreSQL Orders Table → Transactional Outbox → Analytics Worker (<1s) → Rollups Updated → Dashboard Flashes via SSE. Orders increment +1 and revenue updates live. |
+| **4. Store Manager Login** | 1 min | `manager@aggrix.com` (`/dashboard/manager`) | Show 3 assigned stores (Apex Tech Lab, Solstice Home, Loom & Craft). Demonstrate side-by-side store comparison matrix. Explain RBAC: manager sees assigned stores only, not all 25 tenants. |
+| **5. Platform Admin Login** | 1 min | `admin@aggrix.com` (`/dashboard/admin`) | Show all 25 tenants, platform-wide orders, currency-segregated sales balances, database schema registry. Note: **Admin dashboard now updates live via global SSE subscription**. |
+| **6. Demonstrate Security** | 30s | Terminal / Auth checks | Explain isolation boundaries: Merchant (own tenant), Manager (assigned stores), Admin (global). Mention cross-tenant access returns HTTP 403 Forbidden. |
+| **7. Architecture & Roadmap**| 1 min | Architecture Diagram | Summarize pipeline: React → FastAPI → PostgreSQL → Transactional Outbox → Worker Daemon → Summary Tables → SSE. Clarify that Shopify/Stripe webhooks are planned future connectors. |
+
+---
+
 ## 2. Prerequisites & Quick Start
 
 Ensure Docker Desktop and Python 3.9+ are installed.
@@ -93,6 +121,7 @@ The login page (`/login`) provides **one-click persona buttons** for instant eva
    - Automatically navigates to the **Platform Admin Dashboard** (`/dashboard/admin`).
    - Evaluates aggregated cross-tenant turnover ($79,590,335.41 gross sales across all 25 tenants).
    - Inspects the live tenant directory table, schema registry metadata, and currency segregation breakdown.
+   - **Live SSE EventStream**: Admin dashboard subscribes to global `GET /api/v1/analytics/stream` and refreshes automatically on any new order event without manual page refresh.
 
 2. **Store Manager (`manager@aggrix.com`)**:
    - Log out via the header or navigate back to `/login` and click **Demo Manager** (Password: `AggrixManager2026!Secure`).

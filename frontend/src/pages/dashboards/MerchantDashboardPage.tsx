@@ -438,9 +438,13 @@ export const MerchantDashboardPage: React.FC = () => {
           title="Total Orders"
           value={totalOrders.toLocaleString()}
           unit="orders"
-          trend={{ percentage: 4.2, isPositive: true, label: 'real-time aggregation' }}
           subtitle="Precomputed daily rollups"
           backendEndpoint="GET /api/v1/analytics/tenants/:id/summary"
+          dataSourceBadge={{
+            text: 'LIVE + SEEDED',
+            variant: 'live',
+            title: '150k Seeded baseline + real-time ingested orders',
+          }}
           icon={<ShoppingBag size={18} />}
         />
 
@@ -448,9 +452,13 @@ export const MerchantDashboardPage: React.FC = () => {
           title="Gross Turnover"
           value={`${activeCurrency} ${grossAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
           unit={activeCurrency}
-          trend={{ percentage: 6.8, isPositive: true, label: 'financial gross sales' }}
           subtitle={`Net: ${activeCurrency} ${netAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
           backendEndpoint="GET /api/v1/analytics/tenants/:id/summary"
+          dataSourceBadge={{
+            text: 'POSTGRESQL',
+            variant: 'live',
+            title: 'Aggregated store turnover in store currency',
+          }}
           icon={<DollarSign size={18} />}
         />
 
@@ -458,8 +466,13 @@ export const MerchantDashboardPage: React.FC = () => {
           title="Avg Order Value"
           value={`${activeCurrency} ${aov.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
           unit={activeCurrency}
-          trend={{ percentage: 2.1, isPositive: true, label: 'basket size trend' }}
           subtitle="Gross Turnover / Valid Orders"
+          backendEndpoint="GET /api/v1/analytics/tenants/:id/summary"
+          dataSourceBadge={{
+            text: 'CALCULATED',
+            variant: 'live',
+            title: 'Dynamically computed average order basket value',
+          }}
           icon={<TrendingUp size={18} />}
         />
 
@@ -467,20 +480,25 @@ export const MerchantDashboardPage: React.FC = () => {
           title="Fulfillment Rate"
           value={`${fulfillmentRate}%`}
           unit="delivered"
-          trend={{ percentage: 0.8, isPositive: true, label: 'SLA compliance' }}
-          subtitle="Fulfilled vs Placed Volume"
+          subtitle={`${fulfilledOrders.toLocaleString()} fulfilled of ${totalOrders.toLocaleString()} total`}
+          backendEndpoint="GET /api/v1/analytics/tenants/:id/status-distribution"
+          dataSourceBadge={{
+            text: 'POSTGRESQL',
+            variant: 'live',
+            title: 'Real-time order lifecycle status distribution',
+          }}
           icon={<PackageCheck size={18} />}
         />
       </div>
 
       {/* Daily Orders Chart & Status Distribution */}
       <div className="grid-2" style={{ marginBottom: 24 }}>
-        <DailyOrdersChart data={dailyData} />
-        <StatusDistributionChart data={statusData} />
+        <DailyOrdersChart data={dailyData} isDemoData={false} />
+        <StatusDistributionChart data={statusData} isDemoData={false} />
       </div>
 
       {/* Top 10 Products Table */}
-      <TopProductsTable products={topProducts} currency={selectedCurrency} />
+      <TopProductsTable products={topProducts} currency={selectedCurrency} isDemoData={false} />
     </div>
   )
 }

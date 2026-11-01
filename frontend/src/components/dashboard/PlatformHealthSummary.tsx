@@ -107,7 +107,10 @@ export const PlatformHealthSummary: React.FC = () => {
               <div className="skeleton-box" style={{ height: 26, width: '70%', margin: '6px 0' }} />
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <StatusBadge status={rootMeta?.status === 'running' ? 'healthy' : 'unhealthy'} label={rootMeta?.status ? 'ONLINE' : 'UNREACHABLE'} />
+                <StatusBadge
+                  status={(rootMeta?.status === 'running' || health?.status === 'healthy') ? 'healthy' : 'unhealthy'}
+                  label={(rootMeta?.status === 'running' || health?.status === 'healthy') ? 'ONLINE' : 'UNREACHABLE'}
+                />
                 <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
                   {rootMeta?.version || 'v0.1.0'}
                 </span>

@@ -347,6 +347,11 @@ export const ManagerDashboardPage: React.FC = () => {
           unit="tenants"
           subtitle="Manager authorized portfolio"
           backendEndpoint="GET /api/v1/analytics/manager/stores"
+          dataSourceBadge={{
+            text: 'RBAC SCOPED',
+            variant: 'live',
+            title: 'Assigned store partitions in manager_tenant_assignments',
+          }}
           icon={<Store size={18} />}
         />
 
@@ -354,9 +359,13 @@ export const ManagerDashboardPage: React.FC = () => {
           title="Combined Orders"
           value={totalCombinedOrders.toLocaleString()}
           unit="orders"
-          trend={{ percentage: 8.5, isPositive: true, label: 'aggregate volume' }}
           subtitle="Sum across authorized portfolio"
           backendEndpoint="GET /api/v1/analytics/manager/summary"
+          dataSourceBadge={{
+            text: 'LIVE + SEEDED',
+            variant: 'live',
+            title: 'Aggregated order volume from daily_tenant_metrics for assigned stores',
+          }}
           icon={<ShoppingBag size={18} />}
         />
 
@@ -364,17 +373,27 @@ export const ManagerDashboardPage: React.FC = () => {
           title="Combined Turnover"
           value={`${activeCurrency} ${totalCombinedTurnover.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
           unit={activeCurrency}
-          trend={{ percentage: 11.4, isPositive: true, label: 'aggregate gross sales' }}
           subtitle="Segregated currency totals"
           backendEndpoint="GET /api/v1/analytics/manager/summary"
+          dataSourceBadge={{
+            text: 'LIVE + SEEDED',
+            variant: 'live',
+            title: 'Combined portfolio gross turnover in primary currency',
+          }}
           icon={<DollarSign size={18} />}
         />
 
         <MetricCard
           title="Stream Sync Health"
-          value="100%"
-          unit="online"
-          subtitle="Outbox event streaming status"
+          value={sseConnected ? 'Connected' : 'Connecting'}
+          unit={sseConnected ? 'SSE Active' : 'Polling'}
+          subtitle="Transactional Outbox <1s sync latency"
+          backendEndpoint="GET /api/v1/analytics/stream"
+          dataSourceBadge={{
+            text: sseConnected ? 'LIVE STREAM' : 'CONNECTING',
+            variant: sseConnected ? 'live' : 'demo',
+            title: 'Real-time EventSource connection to backend outbox broadcast',
+          }}
           icon={<Layers size={18} />}
         />
       </div>

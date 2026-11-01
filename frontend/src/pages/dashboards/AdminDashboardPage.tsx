@@ -9,15 +9,18 @@ import {
   DollarSign,
   ShoppingBag,
   AlertCircle,
+  Radio,
 } from 'lucide-react'
 import { RoleSwitcher } from '../../components/dashboard/RoleSwitcher'
 import { PlatformHealthSummary } from '../../components/dashboard/PlatformHealthSummary'
 import { MetricCard } from '../../components/dashboard/MetricCard'
 import { Card } from '../../components/common/Card'
 import { analyticsService } from '../../services/analyticsService'
+import { useSSE } from '../../hooks/useSSE'
 import type {
   PlatformSummaryResponse,
   TenantListItem,
+  BroadcastEvent,
 } from '../../types/api'
 
 export const AdminDashboardPage: React.FC = () => {
@@ -25,6 +28,7 @@ export const AdminDashboardPage: React.FC = () => {
   const [tenants, setTenants] = useState<TenantListItem[]>([])
   const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
+  const [liveBanner, setLiveBanner] = useState<string | null>(null)
 
   const schemaModels = [
     { name: 'tenants', pk: 'id (UUID)', isolation: 'Partition Root', fks: 'None', unique: 'domain' },
@@ -63,6 +67,21 @@ export const AdminDashboardPage: React.FC = () => {
   useEffect(() => {
     fetchPlatformData()
   }, [fetchPlatformData])
+
+  // Real-Time SSE Event Handling for Platform Administrator (Global Scope)
+  const handleSSEEvent = useCallback(
+    (ev: BroadcastEvent) => {
+      setLiveBanner(`Live Ingestion Event: Store ${ev.tenant_id.slice(0, 8)} order ${ev.external_order_id || ev.order_id.slice(0, 8)} (${ev.currency} ${ev.total_amount.toFixed(2)})`)
+      // Refresh platform metrics automatically
+      fetchPlatformData()
+    },
+    [fetchPlatformData]
+  )
+
+  const { isConnected: sseConnected } = useSSE({
+    enabled: true,
+    onEvent: handleSSEEvent,
+  })
 
   const totalTenants = summary?.total_tenants ?? tenants.length
   const totalOrders = summary?.total_orders ?? 150000
@@ -108,8 +127,54 @@ export const AdminDashboardPage: React.FC = () => {
       </div>
 
       {/* Real Live Backend Health Diagnostic Widget */}
-      <div style={{ marginBottom: 24 }}>
+      <div style={{ marginBottom: 20 }}>
         <PlatformHealthSummary />
+      </div>
+
+      {/* Live SSE Stream Pulse Status Banner */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '10px 16px',
+          backgroundColor: sseConnected ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)',
+          border: `1px solid ${sseConnected ? 'rgba(16, 185, 129, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`,
+          borderRadius: 'var(--radius-sm)',
+          marginBottom: 20,
+          fontSize: 12,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Radio
+            size={16}
+            style={{
+              color: sseConnected ? 'var(--success)' : 'var(--warning)',
+              animation: sseConnected ? 'pulse 2s infinite' : 'none',
+            }}
+          />
+          <span style={{ color: '#ffffff', fontWeight: 600 }}>
+            {sseConnected ? 'Live Global SSE Stream Connected' : 'Connecting to Global Outbox Event Stream...'}
+          </span>
+          <span style={{ color: 'var(--text-muted)' }}>
+            Target: <code>GET /api/v1/analytics/stream</code> (Global Scope)
+          </span>
+        </div>
+
+        {liveBanner && (
+          <div
+            style={{
+              padding: '2px 8px',
+              backgroundColor: 'rgba(56, 189, 248, 0.2)',
+              border: '1px solid #38bdf8',
+              borderRadius: 4,
+              color: '#38bdf8',
+              fontWeight: 600,
+            }}
+          >
+            {liveBanner}
+          </div>
+        )}
       </div>
 
       {/* Error state */}
@@ -142,6 +207,11 @@ export const AdminDashboardPage: React.FC = () => {
           unit="tenants"
           subtitle="Partitions registered in PostgreSQL"
           backendEndpoint="GET /api/v1/analytics/platform/summary"
+          dataSourceBadge={{
+            text: 'POSTGRESQL',
+            variant: 'live',
+            title: 'Partition roots in PostgreSQL tenants table',
+          }}
           icon={<Store size={18} />}
         />
 
@@ -149,9 +219,13 @@ export const AdminDashboardPage: React.FC = () => {
           title="Total Platform Orders"
           value={totalOrders.toLocaleString()}
           unit="orders"
-          trend={{ percentage: 14.2, isPositive: true, label: 'all-time transactions' }}
-          subtitle="Stage 2 verified dataset"
+          subtitle="150,000 Seeded Baseline + Live API Orders"
           backendEndpoint="GET /api/v1/analytics/platform/summary"
+          dataSourceBadge={{
+            text: 'LIVE + SEEDED',
+            variant: 'live',
+            title: 'Aggregated rollups from daily_tenant_metrics across all tenants',
+          }}
           icon={<ShoppingBag size={18} />}
         />
 
@@ -159,18 +233,27 @@ export const AdminDashboardPage: React.FC = () => {
           title="Worker Throughput"
           value="382,405"
           unit="events"
-          trend={{ percentage: 100, isPositive: true, label: '100% backlog consumed' }}
-          subtitle="0 Dead-Letter Events"
-          backendEndpoint="GET /api/v1/health"
+          subtitle="Stage 2 Baseline Audit Benchmark (0 DLQ)"
+          backendEndpoint="Worker Polling (<1s Latency)"
+          dataSourceBadge={{
+            text: 'DEMO BENCHMARK',
+            variant: 'benchmark',
+            title: 'Stage 2 benchmark count: 382,405 events processed with 0 dead-letter events',
+          }}
           icon={<Cpu size={18} />}
         />
 
         <MetricCard
           title="Financial Variance"
           value="$0.00"
-          unit="exact"
-          trend={{ percentage: 0, isPositive: true, label: 'zero discrepancy' }}
-          subtitle="Gross == Net + Pending + Void"
+          unit="reconciled"
+          subtitle="Stage 2 Financial Reconciliation Audit"
+          backendEndpoint="Audit Script: Zero Variance"
+          dataSourceBadge={{
+            text: 'AUDIT BENCHMARK',
+            variant: 'benchmark',
+            title: 'Audit script verified exact balance: Gross == Net + Pending + Void',
+          }}
           icon={<DollarSign size={18} />}
         />
       </div>

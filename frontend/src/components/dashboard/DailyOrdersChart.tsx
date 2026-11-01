@@ -14,7 +14,7 @@ interface DailyOrdersChartProps {
 
 export const DailyOrdersChart: React.FC<DailyOrdersChartProps> = ({
   data,
-  isDemoData = true,
+  isDemoData = false,
 }) => {
   const [hoveredPoint, setHoveredPoint] = useState<DailyPoint | null>(null)
 
@@ -30,14 +30,22 @@ export const DailyOrdersChart: React.FC<DailyOrdersChartProps> = ({
       title={
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Calendar size={18} style={{ color: 'var(--accent-primary)' }} aria-hidden="true" />
-          <span>30-Day Daily Order Volume (Metric 3 Preview)</span>
+          <span>30-Day Daily Order Volume</span>
         </div>
       }
-      subtitle="Zero-filled chronological series generated via generate_series() contract"
+      subtitle="Chronological volume series aggregated from daily_tenant_metrics"
       action={
         isDemoData ? (
-          <span className="badge-demo">DEMO DATA — NOT LIVE</span>
-        ) : undefined
+          <span className="badge-demo">DEMO DATA</span>
+        ) : (
+          <span
+            className="badge badge-neutral"
+            style={{ fontSize: 10, padding: '2px 7px' }}
+            title="Precomputed daily rollups from PostgreSQL daily_tenant_metrics"
+          >
+            POSTGRESQL-BACKED
+          </span>
+        )
       }
     >
       <div style={{ position: 'relative', marginTop: 12 }}>
