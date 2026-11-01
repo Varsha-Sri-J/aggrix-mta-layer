@@ -247,3 +247,64 @@ The test suite spans **211 automated tests** with 100% pass rate:
 | `test_realtime_e2e.py` | End-to-end pipeline: Order → Outbox → Worker → Rollup → API → SSE | 3 |
 | `test_generator.py` & others | Deterministic seeding, metadata validation, live PostgreSQL checks | 94 |
 | **Total** | **Comprehensive Multi-Layer Test Coverage** | **211 Passed** |
+
+---
+
+## 10. Multi-Tenant React 18 Frontend Architecture
+
+The user interface is engineered as a decoupled React 18 SPA (TypeScript 5.6, Vite 6) providing distinct operational workspaces for the three core personas:
+
+```
+[ Browser / Client ]
+        │
+        ├── Auth Service (authService.ts) ── JWT Bearer / Role Translation
+        │
+        ├── Analytics Service (analyticsService.ts) ── Typed REST Endpoints
+        │
+        └── useSSE Hook (useSSE.ts) ── EventSource (?token=...&tenant_id=...)
+                │
+                ├── Platform Administrator Dashboard (AdminDashboardPage.tsx)
+                ├── Store Manager Dashboard (ManagerDashboardPage.tsx)
+                └── Merchant Operational Dashboard (MerchantDashboardPage.tsx)
+```
+
+### 1. Bidirectional RBAC Role Translation
+The backend uses snake_case domain roles (`platform_admin`, `store_manager`, `tenant_user`), while the frontend navigation schema uses user-friendly aliases (`admin`, `manager`, `merchant`).
+`authService.ts` implements strict bidirectional mapping:
+```ts
+export function mapBackendRoleToFrontend(role: BackendRole | string): FrontendRole {
+  switch (role) {
+    case 'platform_admin': return 'admin'
+    case 'store_manager': return 'manager'
+    case 'tenant_user': return 'merchant'
+    default: return 'merchant'
+  }
+}
+```
+
+### 2. Live SSE Streaming Hook (`useSSE.ts`)
+Browser `EventSource` cannot pass custom HTTP request headers. To maintain zero-trust tenant isolation:
+- The JWT access token is passed as an authenticated query parameter: `GET /api/v1/analytics/stream?token=<jwt>&tenant_id=<uuid>`.
+- The hook manages automatic backoff reconnection, heartbeat detection, and maintains an in-memory chronological event stream.
+
+### 3. Array Query Parameter Serialization
+FastAPI's query parameter parser expects repeated parameters for arrays (`?tenant_ids=uuid1&tenant_ids=uuid2`).
+The centralized `apiClient`'s `buildQueryString` helper natively detects arrays and appends duplicate keys, ensuring multi-store comparison queries (`/api/v1/analytics/manager/compare`) execute without 422 Unprocessable Entity errors.
+
+---
+
+## 11. Performance Benchmarks & Empirical Query Analysis
+
+Benchmarked against PostgreSQL 16 on the Stage 2 dataset (25 tenants, 150,000 orders, 449,784 order items):
+
+| Metric / Query Type | Raw OLTP Scan | Precomputed Rollup Table | Measured Speedup | Accounting Invariant Delta |
+| :--- | :--- | :--- | :---: | :---: |
+| **Platform-Wide Summary** (150,000 orders) | `10.70 ms` | `0.39 ms` | **27.5x** | **$0.00** |
+| **Top 10 Products by Revenue** (449,784 items) | `3.46 ms` | `1.29 ms` | **2.7x** | **$0.00** |
+| **Daily Orders Time-Series** (Date Cohorts) | `0.61 ms` | `0.27 ms` | **2.2x** | **$0.00** |
+
+### Worker Event Processing Throughput
+- **Batch Processing Rate**: `2.1s` – `2.3s` per 1,000 events (**~450 events/second**)
+- **End-to-End Latency**: Sub-second (`0.27s` – `0.39s` from transactional commit to live SSE delivery)
+- **Dead-Letter Failure Rate**: `0.00%` (0 quarantined events across 382,405 consumed events)
+

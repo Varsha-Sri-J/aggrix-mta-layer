@@ -288,3 +288,25 @@ Write a minimal FastAPI app that:
 2. Implements a route `@app.get("/stream")` returning `StreamingResponse(generator(), media_type="text/event-stream")`.
 3. In a separate background task, puts messages into the queue every 2 seconds.
 4. Verify using `curl -N http://localhost:8000/stream`.
+
+---
+
+## Module 9: React 18 + TypeScript Multi-Tenant Frontend Integration
+
+### 1. What It Does
+Implements a type-safe single-page application (SPA) with persona-specific operational views (Merchant, Store Manager, Platform Admin), dynamic SVG charts, multi-store comparison matrices, and real-time SSE stream ingestion.
+
+### 2. Which Files Implement It
+- [`frontend/src/types/api.ts`](file:///Users/varshasri/aggrix-mta-layer/frontend/src/types/api.ts): Strong TypeScript interface definitions for analytics, models, user profiles, and API query parameters.
+- [`frontend/src/services/authService.ts`](file:///Users/varshasri/aggrix-mta-layer/frontend/src/services/authService.ts): Manages JWT bearer tokens, profile discovery, and bidirectional role mapping (`platform_admin` ↔ `admin`, `store_manager` ↔ `manager`, `tenant_user` ↔ `merchant`).
+- [`frontend/src/services/analyticsService.ts`](file:///Users/varshasri/aggrix-mta-layer/frontend/src/services/analyticsService.ts): Client wrapper for tenant rollups, daily metrics, product rankings, and manager comparisons.
+- [`frontend/src/hooks/useSSE.ts`](file:///Users/varshasri/aggrix-mta-layer/frontend/src/hooks/useSSE.ts): Reusable React hook for `EventSource` live updates with token query authentication and automatic reconnection.
+- [`frontend/src/pages/dashboards/MerchantDashboardPage.tsx`](file:///Users/varshasri/aggrix-mta-layer/frontend/src/pages/dashboards/MerchantDashboardPage.tsx): Single-store operational cockpit with live SSE pulse.
+- [`frontend/src/pages/dashboards/ManagerDashboardPage.tsx`](file:///Users/varshasri/aggrix-mta-layer/frontend/src/pages/dashboards/ManagerDashboardPage.tsx): Multi-store comparison workspace.
+- [`frontend/src/pages/dashboards/AdminDashboardPage.tsx`](file:///Users/varshasri/aggrix-mta-layer/frontend/src/pages/dashboards/AdminDashboardPage.tsx): Platform-wide analytics across all 25 tenant stores.
+
+### 3. Key Concepts to Understand
+- **EventSource Token Authentication**: Standard browser `EventSource` cannot send custom headers. Token is passed securely via `?token=` query parameter and validated by backend FastAPI dependency.
+- **Query Parameter Serialization**: FastAPI expects array parameters repeated (`?tenant_ids=A&tenant_ids=B`). `apiClient` serializes arrays into repeated query keys rather than comma-separated strings.
+- **Client-Side Tenant Isolation**: In addition to backend 403 Forbidden enforcement, the UI isolates tenant views to prevent cross-tenant UI leakage.
+

@@ -73,28 +73,47 @@ echo "AggrixAdmin2026!Secure" | PYTHONPATH=backend ./.venv/bin/python -m app.cli
 
 ---
 
-## 4. Step 2: Access the Live Dashboard
+## 4. Step 2: Access the Multi-Tenant React Frontend Dashboard
 
-1. Open your web browser and navigate to:
-   **`http://localhost:8000/dashboard`**
-2. Click **Authenticate / Connect**.
-3. Select the **Sign In** tab:
-   - **Email**: `admin@aggrix.com`
-   - **Password**: `AggrixAdmin2026!Secure`
-4. Click **Sign In & Connect**.
+AGGRIX provides a modern, responsive React 18 + TypeScript + Vite multi-tenant dashboard connected directly to the live backend analytics engine and SSE stream.
 
-**Expected Results**:
-- The modal closes and an authenticated session is established.
-- The **Store Switcher** dropdown in the top header is populated with the 25 active tenant stores (e.g., *Apex Tech Lab*, *Aura Athletics*, *Haven Kitchenware*).
-- The KPI cards display live totals:
-  - **Gross Sales**
-  - **Net Sales**
-  - **Orders Count**
-  - **Average Order Value (AOV)**
-  - **Active Customers**
-- The live revenue area chart renders historical trends.
-- The order status distribution donut chart displays *Fulfilled*, *Paid*, *Pending*, and *Cancelled* ratios.
-- The header displays a green glowing indicator: **LIVE**.
+### A. Start the React Frontend Dev Server
+In a new terminal window:
+```bash
+cd frontend
+npm run dev
+```
+Open your browser to: **`http://localhost:5173`** (or click the URL printed in the terminal).
+
+### B. Authenticate Using Pre-Provisioned Personas
+The login page (`/login`) provides **one-click persona buttons** for instant evaluation:
+
+1. **Platform Administrator (`admin@aggrix.com`)**:
+   - Click **Demo Admin** (Password: `AggrixAdmin2026!Secure`).
+   - Automatically navigates to the **Platform Admin Dashboard** (`/dashboard/admin`).
+   - Evaluates aggregated cross-tenant turnover ($79,590,335.41 gross sales across all 25 tenants).
+   - Inspects the live tenant directory table, schema registry metadata, and currency segregation breakdown.
+
+2. **Store Manager (`manager@aggrix.com`)**:
+   - Log out via the header or navigate back to `/login` and click **Demo Manager** (Password: `AggrixManager2026!Secure`).
+   - Automatically navigates to the **Manager Dashboard** (`/dashboard/manager`).
+   - Evaluates the 3 assigned stores: *Apex Tech Lab*, *Solstice Home & Hearth*, and *Loom & Craft Goods*.
+   - **Interactive Store Comparisons**: Toggle store checkboxes under "Compare Assigned Stores" to evaluate side-by-side performance in real time via `GET /api/v1/analytics/manager/compare`.
+   - Inspects the live outbox stream pulse indicator.
+
+3. **Merchant Operator (`user@apextech.com`)**:
+   - Log out and click **Demo Merchant** (Password: `ApexUserPassword2026!`).
+   - Automatically navigates to the **Merchant Operational Dashboard** (`/dashboard/merchant`).
+   - Scoped strictly to *Apex Tech Lab* (`3c6c80b4-32d6-4cb2-a6cf-344720d64305`).
+   - Displays real precomputed rollups: Total Orders (2,000), Gross Turnover ($1,067,295.22), AOV ($533.65), Fulfillment Rate (65.2%).
+   - Daily orders timeline chart and order status donut breakdown.
+   - Live EventSource SSE pulse indicator verifying persistent connection to `GET /api/v1/analytics/stream?token=...&tenant_id=...`.
+
+### C. Access the Operations Dashboard
+The legacy static operations dashboard also remains available for low-level operational inspection:
+- Open: **`http://localhost:8000/dashboard`**
+- Sign in with `admin@aggrix.com` / `AggrixAdmin2026!Secure`.
+
 
 ---
 
@@ -201,8 +220,51 @@ Expected output confirms:
 - **Net Sales**: $67,585,755.54 ($0.00 mismatch)
 - **Accounting Invariant**: $\Delta = \$0.00$
 
-To execute the entire automated regression suite:
+To execute the automated regression suites:
 ```bash
-PYTHONPATH=backend ./.venv/bin/pytest
+# Backend pytest suite (RBAC, Worker, Ingestion, Analytics, Realtime)
+PYTHONPATH=backend ./.venv/bin/pytest tests/test_security_rbac.py tests/test_live_ingestion.py tests/test_analytics_api.py tests/test_worker.py -q
+
+# Frontend Vitest suite (Auth, API Client, Dashboard Components, Ingestion Client)
+cd frontend && npm test && npm run build
 ```
-**Result**: **211 passed** across unit, integration, RBAC, and real-time streaming tests.
+
+---
+
+## 9. Step 7: Live Merchant Order Ingestion & Multi-Dashboard Update
+
+AGGRIX provides authenticated, tenant-isolated REST endpoints for ingesting live order transactions into PostgreSQL and streaming them into analytical rollups:
+
+```bash
+# Ingest a live merchant order via cURL (or using frontend ingestService)
+curl -X POST http://localhost:8000/api/v1/ingest/orders \
+  -H "Authorization: Bearer <MERCHANT_JWT_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "external_order_id": "#LIVE-DEMO-001",
+    "customer": {
+      "email": "buyer@example.com",
+      "name": "Jane Buyer"
+    },
+    "currency": "USD",
+    "status": "paid",
+    "items": [
+      {
+        "sku": "SKU-LIVE-01",
+        "name": "Live Demo Product",
+        "quantity": 1,
+        "unit_price": 250.00
+      }
+    ]
+  }'
+```
+
+**End-to-End Pipeline Execution**:
+1. Order is validated and transactionally written to PostgreSQL `orders` and `order_items`.
+2. Outbox event `order.paid` is atomically published in `outbox_events`.
+3. `aggrix-analytics-worker` polls the outbox event and performs atomic incremental rollups into `daily_tenant_metrics` in sub-second latency.
+4. **Merchant Dashboard** (`user@apextech.com`): Total orders increments +1, Gross/Net sales increments +$250.00.
+5. **Manager Dashboard** (`manager@aggrix.com`): Store aggregate increments +1 order, +$250.00 (Apex Tech Lab is assigned).
+6. **Platform Admin Dashboard** (`admin@aggrix.com`): Platform-wide order volume and gross sales reflect the new order.
+7. **Security / RBAC**: Unauthorized ingestion into foreign tenants returns `HTTP 403 Forbidden`.
+

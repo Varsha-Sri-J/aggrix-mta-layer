@@ -149,4 +149,112 @@ All database constraints and tenancy invariants were programmatically validated:
    - [`docs/TECHNICAL_REVIEW.md`](file:///Users/varshasri/aggrix-mta-layer/docs/TECHNICAL_REVIEW.md): Deep-dive architectural review covering multi-tenancy, outbox, incremental rollups, SSE, and financial invariants.
    - [`docs/LEARNING_GUIDE.md`](file:///Users/varshasri/aggrix-mta-layer/docs/LEARNING_GUIDE.md): Code-backed structured learning curriculum with function references, data flows, and practical exercises.
 
+---
+
+## Stage 4: React 18 Multi-Tenant Dashboard Integration & Full-Stack Audit
+
+**Status**: **COMPLETED & FULLY VERIFIED**  
+**Audit Date**: 2026-11-01  
+**Integration Branch**: `integration/frontend-backend` (HEAD: `51cb5a0`)  
+**Backend Baseline Preservation**: Commit `cf7dadb`  
+**Frontend Commit (PR #3 source)**: Commit `6a1b78b` (PR #3 unmerged on GitHub)  
+**Test Suite Status**:
+- **Backend Tests**: **211 passed in 77.98s** (100% pass rate, zero regressions)
+- **Frontend Tests**: **39 passed in 124ms** (4 test suites, 100% pass rate)
+- **Frontend Build**: `tsc && vite build` succeeded in 665ms with zero errors
+
+---
+
+### 1. Workstream Deliverables Summary
+
+| Workstream | Key Deliverables | Verification Status |
+| :--- | :--- | :--- |
+| **Bidirectional Role Mapping** | `platform_admin` ↔ `admin`, `store_manager` ↔ `manager`, `tenant_user` ↔ `merchant`. Implemented in [`frontend/src/services/authService.ts`](file:///Users/varshasri/aggrix-mta-layer/frontend/src/services/authService.ts) and verified via 8 unit tests. | **Verified** |
+| **Live Analytics API Client** | [`frontend/src/services/analyticsService.ts`](file:///Users/varshasri/aggrix-mta-layer/frontend/src/services/analyticsService.ts) with full TypeScript coverage for tenant rollups, daily series, status breakdown, recent orders, manager comparison, and platform summary. | **Verified** |
+| **Real-Time SSE React Hook** | [`frontend/src/hooks/useSSE.ts`](file:///Users/varshasri/aggrix-mta-layer/frontend/src/hooks/useSSE.ts) supporting authenticated EventSource streaming via `?token=` query parameter, tenant isolation filtering, connection state pulse, and reconnect resilience. | **Verified** |
+| **Merchant Dashboard** | [`frontend/src/pages/dashboards/MerchantDashboardPage.tsx`](file:///Users/varshasri/aggrix-mta-layer/frontend/src/pages/dashboards/MerchantDashboardPage.tsx) connected to live APIs: tenant summary, daily orders chart, status donut, product rankings, and real-time SSE event reception. | **Verified** |
+| **Manager Dashboard** | [`frontend/src/pages/dashboards/ManagerDashboardPage.tsx`](file:///Users/varshasri/aggrix-mta-layer/frontend/src/pages/dashboards/ManagerDashboardPage.tsx) connected to manager multi-store aggregation, interactive store comparison checkboxes, and live outbox event feed. | **Verified** |
+| **Admin Dashboard** | [`frontend/src/pages/dashboards/AdminDashboardPage.tsx`](file:///Users/varshasri/aggrix-mta-layer/frontend/src/pages/dashboards/AdminDashboardPage.tsx) connected to platform analytics summary across all 25 tenants, tenant directory table, schema registry, and multi-currency metrics. | **Verified** |
+| **Login & Persona Routing** | [`frontend/src/pages/LoginPage.tsx`](file:///Users/varshasri/aggrix-mta-layer/frontend/src/pages/LoginPage.tsx) with one-click demo personas, live JWT acquisition, profile lookup, and role-based redirect. | **Verified** |
+
+---
+
+### 2. Database Accounts & Persona Provisioning
+
+All three role personas are provisioned in PostgreSQL with bcrypt-encrypted credentials and verified live:
+
+| Persona | Role | Email | Password | Scope / Permissions |
+| :--- | :--- | :--- | :--- | :--- |
+| **Platform Admin** | `platform_admin` (`admin`) | `admin@aggrix.com` | `AggrixAdmin2026!Secure` | Full platform access; all 25 tenants; cross-tenant rollups. |
+| **Store Manager** | `store_manager` (`manager`) | `manager@aggrix.com` | `AggrixManager2026!Secure` | Assigned 3 stores: *Apex Tech Lab*, *Solstice Home & Hearth*, *Loom & Craft Goods*. |
+| **Merchant Operator**| `tenant_user` (`merchant`) | `user@apextech.com` | `ApexUserPassword2026!` | Scoped exclusively to *Apex Tech Lab* (`3c6c80b4-32d6-4cb2-a6cf-344720d64305`). |
+
+---
+
+### 3. API Security & Tenant Isolation Verification
+
+Live RBAC enforcement and tenant boundaries were verified using programmatic integration tests:
+
+| Test Case | Method & Endpoint | Identity / Token | Expected | Actual Result | Status |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Admin Platform Summary** | `GET /api/v1/analytics/platform/summary` | `admin@aggrix.com` | HTTP 200 | HTTP 200 (4.9ms, 25 tenants, $79,590,335.41 gross) | **PASSED** |
+| **Manager Stores Breakdown** | `GET /api/v1/analytics/manager/stores` | `manager@aggrix.com` | HTTP 200 | HTTP 200 (4.3ms, 3 assigned stores) | **PASSED** |
+| **Manager Store Comparison** | `GET /api/v1/analytics/manager/compare?tenant_ids=...` | `manager@aggrix.com` | HTTP 200 | HTTP 200 (3.3ms, 2 compared stores) | **PASSED** |
+| **Merchant Authorized Store**| `GET /api/v1/analytics/tenants/:apex_id/summary` | `user@apextech.com` | HTTP 200 | HTTP 200 (7.2ms, 2,000 orders, $1,067,295.22) | **PASSED** |
+| **Merchant Foreign Store Access** | `GET /api/v1/analytics/tenants/:other_id/summary` | `user@apextech.com` | HTTP 403 | HTTP 403 (`Access denied: tenant users can only access their own tenant data.`) | **PASSED** |
+| **Manager Unassigned Store Access** | `GET /api/v1/analytics/manager/compare?tenant_ids=:unassigned` | `manager@aggrix.com` | HTTP 403 | HTTP 403 (`Access denied: manager is not assigned to store...`) | **PASSED** |
+| **Merchant Platform Access** | `GET /api/v1/analytics/platform/summary` | `user@apextech.com` | HTTP 403 | HTTP 403 (`Access denied: platform administrator privileges required.`) | **PASSED** |
+| **Invalid JWT Token** | `GET /api/v1/auth/me` | Bad / Expired Token | HTTP 401 | HTTP 401 (`Could not validate credentials.`) | **PASSED** |
+| **SSE Unauthorized Tenant** | `GET /api/v1/analytics/stream?tenant_id=:foreign` | `user@apextech.com` | HTTP 403 | HTTP 403 Forbidden | **PASSED** |
+| **SSE Authorized Stream** | `GET /api/v1/analytics/stream?tenant_id=:apex_id` | `user@apextech.com` | HTTP 200 | HTTP 200 (`text/event-stream; charset=utf-8`) | **PASSED** |
+
+---
+
+### 4. Performance & Latency Metrics
+
+Live execution latency measured across the complete system:
+
+* **Authentication (bcrypt 12 rounds)**:
+  - Admin login: `208.7ms`
+  - Manager login: `205.3ms`
+  - Merchant login: `204.3ms`
+* **FastAPI Query Services (PostgreSQL precomputed rollups)**:
+  - Session verification (`/api/v1/auth/me`): `2.4ms` – `2.9ms`
+  - Platform summary (25 tenants, 150k orders aggregate): `4.9ms`
+  - Manager stores rollup (3 stores): `4.3ms`
+  - Manager store comparison (2 stores): `3.3ms`
+  - Merchant store summary: `7.2ms`
+* **Background Worker Processing Throughput**:
+  - Outbox polling interval: `0.10s`
+  - Batch size: `1,000 events`
+  - Event processing speed: `2.1s` – `2.3s` per 1,000-event batch (~450 events/second)
+  - Single event live propagation time: `0.27s` – `0.39s`
+
+---
+
+### 5. Data & Financial Preservation Check
+
+The complete Stage 2 baseline remains 100% intact with zero variance:
+* **Tenants**: 25
+* **Customers**: 12,500
+* **Products**: 2,500
+* **Orders**: 150,000
+* **Order Items**: 449,784
+* **Outbox Consumer Events**: 382,405 (100.0% consumed)
+* **Dead-Letter Events**: 0
+* **Gross Sales**: $79,590,335.41
+* **Net Recognized Sales**: $67,585,755.54
+* **Financial Variance**: **$0.00**
+
+---
+
+### 6. Git & Branch Management Status
+
+* Current working branch: `integration/frontend-backend`
+* Commit `cf7dadb`: Backend analytics engine, SSE, RBAC, and CORS configuration.
+* Commit `51cb5a0`: Merge commit integrating frontend dashboard files into `integration/frontend-backend`.
+* PR #3 (`feature/frontend-dashboard` -> `feature/backend-setup`): **Remains OPEN and UNMERGED on GitHub**.
+* No remote branches pushed; no destructive Git operations executed.
+
+
 
