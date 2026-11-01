@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { Menu, Globe, Server, ShieldAlert, LogOut, User as UserIcon } from 'lucide-react'
 import { env } from '../../config/env'
 import { fetchHealth } from '../../services/api'
@@ -13,6 +13,7 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, isSidebarOpen = false }) => {
   const navigate = useNavigate()
+  const location = useLocation()
   const [health, setHealth] = useState<HealthResponse | null>(null)
   const [user, setUser] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState<boolean>(true)
@@ -55,6 +56,20 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, isSidebarOpen =
       clearInterval(interval)
     }
   }, [])
+
+  useEffect(() => {
+    let isMounted = true
+    authService.getCurrentUser()
+      .then(profile => {
+        if (isMounted) setUser(profile)
+      })
+      .catch(() => {
+        if (isMounted) setUser(null)
+      })
+    return () => {
+      isMounted = false
+    }
+  }, [location.pathname])
 
   const handleLogout = () => {
     authService.logout()
