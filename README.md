@@ -40,7 +40,7 @@ Designed around Shopify-inspired architectural isolation, AGGRIX delivers **role
 - [8. System Architecture](#8-system-architecture)
 - [9. How AGGRIX Works](#9-how-aggrix-works)
 - [10. Technology Stack](#10-technology-stack)
-- [11. Docker and Containerization](#11-docker-and-containerization)
+- [Database Architecture & Infrastructure](#database-architecture--infrastructure)
 - [12. Project Structure](#12-project-structure)
 - [13. Installation and Setup](#13-installation-and-setup)
 - [14. API Documentation](#14-api-documentation)
@@ -339,51 +339,165 @@ The complete lifecycle of an order—from external ingestion to live dashboard r
 
 ---
 
-## 11. Docker and Containerization
+## Database Architecture & Infrastructure
 
-AGGRIX provides a multi-container Docker Compose architecture ensuring consistent execution across development and production environments.
+The AGGRIX platform couples a multi-tenant relational data model with a containerized service stack designed for local development, integration testing, and live hackathon demonstrations. The data tier leverages **PostgreSQL 16**, **SQLAlchemy 2.0**, **Alembic**, and **DBeaver Community** for structured schema design, type-safe ORM access, versioned migrations, and visual relationship inspection. The service runtime is managed via **Docker Compose**, providing network isolation, volume persistence, and dependency health checks across the API server, database engine, and asynchronous analytics worker daemon.
+
+---
+
+### Container Infrastructure (Docker & Docker Compose)
+
+AGGRIX organizes its core runtime into three containerized services managed by Docker Compose and networked through an internal bridge (`aggrix-network`). This setup isolates database storage, web traffic ingestion, and asynchronous background rollups while allowing developers to inspect logs and manage lifecycle state centrally.
+
+![AGGRIX Container Services in Docker Desktop](docs/screenshots/docker/docker_desktop_containers.png)
+
+*Figure 1: Docker Desktop container orchestration showing the running AGGRIX multi-service stack (`aggrix-postgres`, `aggrix-backend`, and `aggrix-analytics-worker`).*
+
+#### Running Containers Breakdown
+
+As shown in the Docker Desktop interface above, the compose project (`aggrix-mta-layer`) coordinates three running containers:
+
+1. **`aggrix-postgres` (Relational Database)**:
+   * **Base Image**: `postgres:16-alpine`
+   * **Port Mapping**: `5432:5432` (host:container)
+   * **Container ID**: `c84d12c12651`
+   * **Role & Function**: Dedicated PostgreSQL 16 server hosting tenant data, order transactions, outbox queues, and analytics rollups. Persists data via a named Docker volume (`postgres_data`) mounted to `/var/lib/postgresql/data`. An automated health check runs `pg_isready -U aggrix_user -d aggrix_db` every 5 seconds to ensure downstream containers only start after the database is ready.
+
+2. **`aggrix-backend` (FastAPI REST API Engine)**:
+   * **Base Image**: `aggrix-mta-layer-backend` (built from `./backend/Dockerfile`)
+   * **Port Mapping**: `8000:8000` (host:container)
+   * **Container ID**: `29fb658702d8`
+   * **Command**: `uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload`
+   * **Role & Function**: Asynchronous REST API service executing FastAPI and Uvicorn. Exposes order ingestion endpoints (`POST /api/v1/ingest/orders`), handles JWT authentication, enforces role-based access control (RBAC), serves dashboard query routes, and hosts the Server-Sent Events (SSE) notification stream. Uses a live code volume mount (`./backend/app:/app/app`) for hot-reloading during development.
+
+3. **`aggrix-analytics-worker` (Transactional Outbox Daemon)**:
+   * **Base Image**: `aggrix-mta-layer-backend:latest` (built from `./backend/Dockerfile`)
+   * **Port Mapping**: None (internal worker daemon communicating entirely within `aggrix-network`)
+   * **Container ID**: `36be2622169b` (truncated as `aggrix-analytics-wo` in Docker Desktop UI)
+   * **Command**: `python -m app.analytics.worker`
+   * **Role & Function**: Dedicated background consumer daemon. Regularly polls `outbox_events` on a configurable interval (default: 1.0 second via `ANALYTICS_WORKER_POLL_INTERVAL_SECONDS`), aggregates daily metrics into `daily_tenant_metrics` and `daily_product_metrics`, records receipt entries in `analytics_consumer_events` to prevent duplicate processing, and issues PostgreSQL `NOTIFY` signals on the `'aggrix_events'` channel.
+
+#### Infrastructure Topology Diagram
 
 ```
                            ┌───────────────────────────────────────────────┐
-                           │            DOCKER COMPOSE RUNTIME             │
-                           └───────────────────────────────────────────────┘
-                                                   │
-                 ┌─────────────────────────────────┼─────────────────────────────────┐
-                 ▼                                 ▼                                 ▼
-      ┌─────────────────────┐           ┌─────────────────────┐           ┌─────────────────────┐
-      │   aggrix-backend    │           │   aggrix-postgres   │           │   analytics-worker  │
-      │  FastAPI (Port 8000)│           │ PostgreSQL 16 (5432)│           │ Outbox Worker Daemon│
-      │  Uvicorn App Engine │           │ Physical Isolation  │           │ Sub-Second Rollups  │
-      └─────────────────────┘           └─────────────────────┘           └─────────────────────┘
-                 │                                 ▲                                 │
-                 └───────────────────┬─────────────┴─────────────┬───────────────────┘
-                                     │                           │
-                                     ▼                           ▼
-                        [Internal Bridge Network]     [Named Docker Volume]
-                            (aggrix-network)             (postgres_data)
+                           │          DOCKER COMPOSE ORCHESTRATION         │
+                           │              (aggrix-mta-layer)               │
+                           └──────────────────────┬────────────────────────┘
+                                                  │
+                 ┌────────────────────────────────┼────────────────────────────────┐
+                 ▼                                ▼                                ▼
+      ┌─────────────────────┐          ┌─────────────────────┐          ┌─────────────────────┐
+      │   aggrix-backend    │          │   aggrix-postgres   │          │aggrix-analytics-wo  │
+      │  FastAPI (Port 8000)│          │ PostgreSQL 16 (5432)│          │ Analytics Worker    │
+      │  Container 29fb6587 │          │ Container c84d12c1  │          │ Container 36be2622  │
+      └──────────┬──────────┘          └──────────▲──────────┘          └──────────┬──────────┘
+                 │                                │                                │
+                 │        SQLAlchemy 2.0 Pool     │      Polling & Rollups         │
+                 └───────────────────────────────►├◄───────────────────────────────┘
+                                                  │
+                                                  ▼
+                                      ┌───────────────────────┐
+                                      │ Named Volume Storage  │
+                                      │    (postgres_data)    │
+                                      └───────────────────────┘
 ```
 
-### Docker Compose Commands
+#### Core Docker Compose Commands
 
-To start all services in the background:
 ```bash
+# Build images and start all three services in background daemon mode
 docker compose up -d --build
-```
 
-To inspect container operational status and healthchecks:
-```bash
+# Check runtime status, port bindings, and health check output
 docker compose ps
-```
 
-To tail live unified logs across backend, database, and analytics worker:
-```bash
+# Follow aggregated, color-coded service logs across all containers
 docker compose logs -f
-```
 
-To stop containers while safely preserving database volumes:
-```bash
+# Stop containers while safely preserving database records in postgres_data
 docker compose down
 ```
+
+---
+
+### Database Architecture & Core Technologies
+
+The data persistence layer relies on four integrated tools:
+
+#### 1. PostgreSQL 16 (Relational Engine)
+* **ACID Transactions**: Order writes, customer lookups, order item records, and outbox event emissions occur within a single database transaction, ensuring no partial writes occur if a step fails.
+* **Multi-Tenant Composite Keys**: Enforces tenant boundary isolation at the database level via composite foreign keys (e.g., `(tenant_id, customer_id)` in `orders` and `(tenant_id, order_id)` in `order_items`), preventing cross-tenant data references directly inside the database engine.
+* **Targeted Partial Indexing**: Includes a partial index on `outbox_events` (`ix_outbox_events_unprocessed` on `created_at` with predicate `WHERE processed_at IS NULL`), allowing the worker daemon to query exclusively for unhandled events without scanning already-processed historical records.
+* **Pub/Sub Notification Channel**: Utilizes PostgreSQL's native `LISTEN / NOTIFY` mechanism on the `'aggrix_events'` channel. When the worker finishes processing an event batch, it executes `SELECT pg_notify('aggrix_events', :payload)`. A background listener thread in the FastAPI backend (`broadcaster.py`) catches these notifications via `psycopg2` and feeds them into the application's in-memory Server-Sent Events (SSE) broadcaster, pushing live updates to connected browser dashboards without requiring manual page reloads.
+
+#### 2. SQLAlchemy 2.0 (ORM & Connection Pooling)
+* **Typed Declarative Models**: Uses SQLAlchemy 2.0's `DeclarativeBase` with `Mapped[...]` type annotations for static typing and clear data models.
+* **Deterministic Constraint Naming**: Applies a centralized naming convention (`POSTGRES_NAMING_CONVENTION` in `app/database/base.py`) that deterministically formats primary keys (`pk_*`), foreign keys (`fk_*`), unique constraints (`uq_*`), indexes (`ix_*`), and check constraints (`ck_*`).
+* **Connection Pooling**: Configured via `QueuePool` with pool sizing parameters (`DB_POOL_SIZE=10`, `DB_MAX_OVERFLOW=20`, `DB_POOL_TIMEOUT=30s`, `DB_POOL_RECYCLE=1800s`, `DB_POOL_PRE_PING=True`) to maintain persistent database connections and automatically detect stale sockets before query execution.
+* **Session Lifecycle**: Database sessions are tied to FastAPI requests via dependency injection (`get_db`), ensuring transactions are cleanly committed or rolled back when requests complete.
+
+#### 3. Alembic (Database Migrations)
+* **Versioned Schema Evolution**: Tracks schema changes in Python migration scripts (`backend/alembic/versions/`), allowing repeatable DDL deployments.
+* **Migration State Tracking**: Uses the `alembic_version` table (visible in DBeaver) to record the active revision hash (such as `0001_initial_schema`), ensuring database schemas stay synchronized across team environments.
+* **Configuration Sharing**: Reads database connection parameters directly from the application's Pydantic settings (`app/core/config.py`), maintaining consistency between local shell commands and Docker containers.
+
+#### 4. DBeaver Community (Schema & Relationship Administration)
+* **Visual Entity-Relationship Modeling**: Reads PostgreSQL catalog metadata to render clear ER diagrams showing table connections, primary keys, and composite foreign key relationships.
+* **Catalog Exploration**: Displays active schemas, tables, indexes, and storage footprints for easy administrative inspection.
+* **Administrative Verification**: Used by developers to confirm table constraints, monitor outbox event queues, and verify role-based tenant assignments.
+
+---
+
+### Database Schema & Relationship Modeling
+
+The DBeaver inspection below illustrates the public table catalog and relationship structure of the AGGRIX database:
+
+![AGGRIX Relational Schema and Entity-Relationship Diagram in DBeaver](docs/screenshots/database/dbeaver_schema_relationships.png)
+
+*Figure 2: DBeaver Community schema explorer and Entity-Relationship (ER) diagram illustrating the relational isolation between `users`, `tenants`, and `manager_tenant_assignments` in PostgreSQL.*
+
+> [!NOTE]
+> The size values displayed beside table names in DBeaver (e.g., `24K`, `131M`, `264M`) represent physical disk storage footprints (kilobytes/megabytes) allocated by PostgreSQL for table and index data pages, rather than row counts.
+
+#### Public Schema Tables Visible in DBeaver
+
+| Table Name | DBeaver Size Display | Architectural Role & Description |
+| :--- | :---: | :--- |
+| **`alembic_version`** | `24K` | Tracks the active Alembic migration revision hash. |
+| **`analytics_consumer_events`** | `131M` | Consumer receipt ledger recording processed events with composite primary key `(consumer_name, event_id)` to guarantee at-least-once delivery with idempotent deduplication. |
+| **`analytics_dead_letter_events`**| `288K` | Dead-letter queue capturing unprocessable or failing events after retry thresholds are reached. |
+| **`customers`** | `5M` | Tenant-scoped customer directory with unique constraint on `(tenant_id, email)`. |
+| **`daily_product_metrics`** | `52M` | Pre-aggregated daily SKU metrics (`total_quantity`, `total_revenue`) by date and currency. |
+| **`daily_tenant_metrics`** | `2.9M` | Pre-aggregated store metrics (`total_orders`, `gross_revenue`, `net_revenue`) by date and currency. |
+| **`manager_tenant_assignments`** | `72K` | Explicit relational mapping linking store managers to their authorized tenant stores. |
+| **`order_items`** | `88M` | Order line items with composite foreign keys enforcing order and product tenant boundaries. |
+| **`orders`** | `67M` | Core order transactions with currency, payment status, and customer foreign key linkage. |
+| **`outbox_events`** | `264M` | Transactional outbox event ledger enabling asynchronous background analytics processing. |
+| **`products`** | `1M` | Tenant-scoped product catalog items with unique constraint on `(tenant_id, sku)`. |
+| **`tenants`** | `96K` | Master tenant organization entities defining logical partition boundaries. |
+| **`users`** | `96K` | System user credentials, bcrypt hashed passwords, and system roles (`tenant_user`, `store_manager`, `platform_admin`). |
+
+#### Detailed Analysis of the Focused Entity-Relationship Diagram
+
+As highlighted in the DBeaver diagram pane, user authorization and tenant assignment are structured across three interconnected models:
+
+1. **`tenants` (Store Organizations)**:
+   * Attributes: `id` (UUID PK), `name` (VARCHAR), `domain` (VARCHAR UK), `timezone` (VARCHAR), `created_at`, `updated_at`.
+   * Serves as the partition root for all business data. Every operational entity in AGGRIX binds to a `tenant_id`.
+
+2. **`users` (System Accounts)**:
+   * Attributes: `id` (UUID PK), `email` (VARCHAR UK), `hashed_password` (VARCHAR), `full_name` (VARCHAR), `role` (VARCHAR), `is_active` (BOOLEAN), `tenant_id` (UUID FK, Nullable), `created_at`, `updated_at`.
+   * Supported roles (`ck_users_role_valid`): `'tenant_user'`, `'store_manager'`, `'platform_admin'`.
+   * For **Merchant Users** (`role = 'tenant_user'`), the direct foreign key `users.tenant_id -> tenants.id` pins the user to their specific store.
+   * For **Platform Admins** (`role = 'platform_admin'`), `tenant_id` is `NULL`, allowing platform-wide visibility across all tenants.
+   * For **Store Managers** (`role = 'store_manager'`), `tenant_id` is also `NULL`, and permitted store portfolios are defined through explicit assignment records.
+
+3. **`manager_tenant_assignments` (Portfolio Mapping)**:
+   * Attributes: `id` (UUID PK), `user_id` (UUID FK -> `users.id`), `tenant_id` (UUID FK -> `tenants.id`), `user_role` (VARCHAR), `created_at`.
+   * Enforces a check constraint `ck_manager_tenant_assignments_role_is_manager` (`user_role = 'store_manager'`) and composite foreign key `(user_id, user_role) -> users.(id, role)` to ensure only store managers can receive store assignments.
+   * Enforces uniqueness on `(user_id, tenant_id)` to prevent redundant mappings.
+   * Connects managers (such as `manager@aggrix.com`) to permitted stores (e.g., Apex Tech Lab, Solstice Hearth, Loom & Craft) while strictly blocking access to unassigned tenant accounts.
 
 ---
 
@@ -665,7 +779,7 @@ AGGRIX utilizes Server-Sent Events (SSE) over persistent HTTP connections, elimi
 
 ## 17. Database and Data Management
 
-PostgreSQL 16 serves as the persistent storage engine, utilizing an enterprise shared-schema design with composite foreign key partitioning.
+PostgreSQL 16 serves as the persistent storage engine, utilizing an enterprise shared-schema design with composite foreign key partitioning. *(For Docker container topology, ORM configuration, and visual DBeaver ER relationships, see [Database Architecture & Infrastructure](#database-architecture--infrastructure).)*
 
 ```
                            ┌───────────────────────────┐
